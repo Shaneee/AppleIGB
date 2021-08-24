@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		32D94FC60562CBF700B6AF17 /* AppleIGB.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleIGB.h */; };
 		32D94FCA0562CBF700B6AF17 /* AppleIGB.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleIGB.cpp */; settings = {ATTRIBUTES = (); }; };
-		4D0D81731179AD4B000A4C84 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167EFE841241C02AAC07 /* InfoPlist.strings */; };
 		4D99BBA310E4D08700292443 /* kcompat.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D99BBA210E4D08700292443 /* kcompat.h */; };
 		4D9C4093146CF9E5008344C0 /* igb_vmdq.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D9C4091146CF9E5008344C0 /* igb_vmdq.h */; };
 		4D9C4094146CF9E5008344C0 /* igb.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D9C4092146CF9E5008344C0 /* igb.h */; };
@@ -39,38 +38,37 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		089C167EFE841241C02AAC07 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; path = InfoPlist.strings; sourceTree = "<group>"; };
-		1A224C3EFF42367911CA2CB7 /* AppleIGB.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleIGB.h; sourceTree = "<group>"; };
-		1A224C3FFF42367911CA2CB7 /* AppleIGB.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleIGB.cpp; sourceTree = "<group>"; };
-		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1A224C3EFF42367911CA2CB7 /* AppleIGB.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleIGB.h; path = AppleIGB/AppleIGB.h; sourceTree = "<group>"; };
+		1A224C3FFF42367911CA2CB7 /* AppleIGB.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AppleIGB.cpp; path = AppleIGB/AppleIGB.cpp; sourceTree = "<group>"; };
+		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = AppleIGB/Info.plist; sourceTree = "<group>"; };
 		32D94FD00562CBF700B6AF17 /* AppleIGB.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleIGB.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D99BBA210E4D08700292443 /* kcompat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kcompat.h; sourceTree = "<group>"; };
-		4D9C4091146CF9E5008344C0 /* igb_vmdq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = igb_vmdq.h; sourceTree = "<group>"; };
-		4D9C4092146CF9E5008344C0 /* igb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = igb.h; sourceTree = "<group>"; };
-		4DB1EE8414668E2F00BDCFB3 /* igb_param.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = igb_param.c; sourceTree = "<group>"; };
+		4D99BBA210E4D08700292443 /* kcompat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kcompat.h; path = AppleIGB/kcompat.h; sourceTree = "<group>"; };
+		4D9C4091146CF9E5008344C0 /* igb_vmdq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = igb_vmdq.h; path = AppleIGB/igb_vmdq.h; sourceTree = "<group>"; };
+		4D9C4092146CF9E5008344C0 /* igb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = igb.h; path = AppleIGB/igb.h; sourceTree = "<group>"; };
+		4DB1EE8414668E2F00BDCFB3 /* igb_param.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = igb_param.c; path = AppleIGB/igb_param.c; sourceTree = "<group>"; };
 		4DB1EE8514668E3B00BDCFB3 /* igb_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = igb_main.c; sourceTree = "<group>"; };
-		4DB1EE8814668EEB00BDCFB3 /* e1000_82575.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_82575.h; sourceTree = "<group>"; };
-		4DB1EE8914668EEB00BDCFB3 /* e1000_api.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_api.h; sourceTree = "<group>"; };
-		4DB1EE8A14668EEB00BDCFB3 /* e1000_hw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_hw.h; sourceTree = "<group>"; };
-		4DB1EE8B14668EEB00BDCFB3 /* e1000_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_mac.h; sourceTree = "<group>"; };
-		4DB1EE8C14668EEB00BDCFB3 /* e1000_manage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_manage.h; sourceTree = "<group>"; };
-		4DB1EE8D14668EEB00BDCFB3 /* e1000_mbx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_mbx.h; sourceTree = "<group>"; };
-		4DB1EE8E14668EEB00BDCFB3 /* e1000_nvm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_nvm.h; sourceTree = "<group>"; };
-		4DB1EE8F14668EEB00BDCFB3 /* e1000_osdep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_osdep.h; sourceTree = "<group>"; };
-		4DB1EE9014668EEB00BDCFB3 /* e1000_phy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_phy.h; sourceTree = "<group>"; };
-		4DB1EE9114668EEB00BDCFB3 /* e1000_regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_regs.h; sourceTree = "<group>"; };
-		4DB1EE9214668EEB00BDCFB3 /* igb_regtest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = igb_regtest.h; sourceTree = "<group>"; };
-		4DB1EE9E14668F0800BDCFB3 /* e1000_82575.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_82575.c; sourceTree = "<group>"; };
-		4DB1EE9F14668F0800BDCFB3 /* e1000_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_api.c; sourceTree = "<group>"; };
-		4DB1EEA014668F0800BDCFB3 /* e1000_mac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_mac.c; sourceTree = "<group>"; };
-		4DB1EEA114668F0800BDCFB3 /* e1000_manage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_manage.c; sourceTree = "<group>"; };
-		4DB1EEA214668F0800BDCFB3 /* e1000_mbx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_mbx.c; sourceTree = "<group>"; };
-		4DB1EEA314668F0800BDCFB3 /* e1000_nvm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_nvm.c; sourceTree = "<group>"; };
-		4DB1EEA414668F0800BDCFB3 /* e1000_phy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_phy.c; sourceTree = "<group>"; };
-		4DB1EEA514668F0800BDCFB3 /* igb_vmdq.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = igb_vmdq.c; sourceTree = "<group>"; };
-		4DB1EEAE14668F1400BDCFB3 /* e1000_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_defines.h; sourceTree = "<group>"; };
-		4DC75F431661194F00EE4583 /* e1000_i210.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000_i210.h; sourceTree = "<group>"; };
-		4DC75F471661195900EE4583 /* e1000_i210.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = e1000_i210.c; sourceTree = "<group>"; };
+		4DB1EE8814668EEB00BDCFB3 /* e1000_82575.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_82575.h; path = AppleIGB/e1000_82575.h; sourceTree = "<group>"; };
+		4DB1EE8914668EEB00BDCFB3 /* e1000_api.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_api.h; path = AppleIGB/e1000_api.h; sourceTree = "<group>"; };
+		4DB1EE8A14668EEB00BDCFB3 /* e1000_hw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_hw.h; path = AppleIGB/e1000_hw.h; sourceTree = "<group>"; };
+		4DB1EE8B14668EEB00BDCFB3 /* e1000_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_mac.h; path = AppleIGB/e1000_mac.h; sourceTree = "<group>"; };
+		4DB1EE8C14668EEB00BDCFB3 /* e1000_manage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_manage.h; path = AppleIGB/e1000_manage.h; sourceTree = "<group>"; };
+		4DB1EE8D14668EEB00BDCFB3 /* e1000_mbx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_mbx.h; path = AppleIGB/e1000_mbx.h; sourceTree = "<group>"; };
+		4DB1EE8E14668EEB00BDCFB3 /* e1000_nvm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_nvm.h; path = AppleIGB/e1000_nvm.h; sourceTree = "<group>"; };
+		4DB1EE8F14668EEB00BDCFB3 /* e1000_osdep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_osdep.h; path = AppleIGB/e1000_osdep.h; sourceTree = "<group>"; };
+		4DB1EE9014668EEB00BDCFB3 /* e1000_phy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_phy.h; path = AppleIGB/e1000_phy.h; sourceTree = "<group>"; };
+		4DB1EE9114668EEB00BDCFB3 /* e1000_regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_regs.h; path = AppleIGB/e1000_regs.h; sourceTree = "<group>"; };
+		4DB1EE9214668EEB00BDCFB3 /* igb_regtest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = igb_regtest.h; path = AppleIGB/igb_regtest.h; sourceTree = "<group>"; };
+		4DB1EE9E14668F0800BDCFB3 /* e1000_82575.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_82575.c; path = AppleIGB/e1000_82575.c; sourceTree = "<group>"; };
+		4DB1EE9F14668F0800BDCFB3 /* e1000_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_api.c; path = AppleIGB/e1000_api.c; sourceTree = "<group>"; };
+		4DB1EEA014668F0800BDCFB3 /* e1000_mac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_mac.c; path = AppleIGB/e1000_mac.c; sourceTree = "<group>"; };
+		4DB1EEA114668F0800BDCFB3 /* e1000_manage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_manage.c; path = AppleIGB/e1000_manage.c; sourceTree = "<group>"; };
+		4DB1EEA214668F0800BDCFB3 /* e1000_mbx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_mbx.c; path = AppleIGB/e1000_mbx.c; sourceTree = "<group>"; };
+		4DB1EEA314668F0800BDCFB3 /* e1000_nvm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_nvm.c; path = AppleIGB/e1000_nvm.c; sourceTree = "<group>"; };
+		4DB1EEA414668F0800BDCFB3 /* e1000_phy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_phy.c; path = AppleIGB/e1000_phy.c; sourceTree = "<group>"; };
+		4DB1EEA514668F0800BDCFB3 /* igb_vmdq.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = igb_vmdq.c; path = AppleIGB/igb_vmdq.c; sourceTree = "<group>"; };
+		4DB1EEAE14668F1400BDCFB3 /* e1000_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_defines.h; path = AppleIGB/e1000_defines.h; sourceTree = "<group>"; };
+		4DC75F431661194F00EE4583 /* e1000_i210.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_i210.h; path = AppleIGB/e1000_i210.h; sourceTree = "<group>"; };
+		4DC75F471661195900EE4583 /* e1000_i210.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_i210.c; path = AppleIGB/e1000_i210.c; sourceTree = "<group>"; };
 		4DED0B1C10EB2A6300CF5CE1 /* kcompat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kcompat.c; sourceTree = "<group>"; };
 		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
@@ -103,7 +101,6 @@
 			isa = PBXGroup;
 			children = (
 				32D94FCF0562CBF700B6AF17 /* Info.plist */,
-				089C167EFE841241C02AAC07 /* InfoPlist.strings */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -223,14 +220,15 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 1300;
 			};
 			buildConfigurationList = 1DEB91DD08733DB10010E9CD /* Build configuration list for PBXProject "AppleIGB" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleIGB */;
 			projectDirPath = "";
@@ -246,7 +244,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4D0D81731179AD4B000A4C84 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -288,17 +285,25 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_ANALYZER_DIVIDE_BY_ZERO = NO;
+				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1.0.1;
+				CURRENT_PROJECT_VERSION = 5.7.2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.insanelymac.driver.AppleIGB;
+				INFOPLIST_FILE = "$(SRCROOT)/AppleIGB/Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 5.7.2;
+				MODULE_NAME = com.amdosx.driver.AppleIGB;
 				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.amdosx.driver.AppleIGB;
 				PRODUCT_NAME = AppleIGB;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
@@ -307,13 +312,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CURRENT_PROJECT_VERSION = 1.0.1;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = 5.7.2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.insanelymac.driver.AppleIGB;
+				INFOPLIST_FILE = "$(SRCROOT)/AppleIGB/Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 5.7.2;
+				MODULE_NAME = com.amdosx.driver.AppleIGB;
 				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.amdosx.driver.AppleIGB;
 				PRODUCT_NAME = AppleIGB;
 				WRAPPER_EXTENSION = kext;
 			};
@@ -322,16 +331,42 @@
 		1DEB91DE08733DB10010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_ONE_BYTE_BOOL = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx10.6;
+				SDKROOT = macosx;
 				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Debug;
@@ -339,14 +374,39 @@
 		1DEB91DF08733DB10010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_ONE_BYTE_BOOL = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
-				SDKROOT = macosx10.6;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				SDKROOT = macosx;
 				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Release;
@@ -354,15 +414,40 @@
 		4D8E46501179A84500CB04DF /* Release_Leo */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_ONE_BYTE_BOOL = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_VERSION = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
-				SDKROOT = macosx10.5;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				SDKROOT = macosx;
 				VALID_ARCHS = i386;
 			};
 			name = Release_Leo;
@@ -371,13 +456,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CURRENT_PROJECT_VERSION = 1.0.1;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = 5.7.2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.insanelymac.driver.AppleIGB;
+				INFOPLIST_FILE = "$(SRCROOT)/AppleIGB/Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 5.7.2;
+				MODULE_NAME = com.amdosx.driver.AppleIGB;
 				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.amdosx.driver.AppleIGB;
 				PRODUCT_NAME = AppleIGB;
 				WRAPPER_EXTENSION = kext;
 			};
