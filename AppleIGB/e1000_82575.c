@@ -1023,7 +1023,7 @@ static void e1000_release_nvm_82575(struct e1000_hw *hw)
  **/
 static s32 e1000_acquire_swfw_sync_82575(struct e1000_hw *hw, u16 mask)
 {
-	u32 swfw_sync;
+	u32 swfw_sync = 0;
 	u32 swmask = mask;
 	u32 fwmask = mask << 16;
 	s32 ret_val = E1000_SUCCESS;

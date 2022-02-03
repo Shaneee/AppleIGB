@@ -1,5 +1,9 @@
 # AppleIGB
-### Intel onboard LAN driver for macOS. Courtesy of [hnak](https://www.insanelymac.com/forum/profile/228503-hnak/?wr=eyJhcHAiOiJmb3J1bXMiLCJtb2R1bGUiOiJmb3J1bXMtY29tbWVudCIsImlkXzEiOjI3MzA3MywiaWRfMiI6MTc3NTc1Mn0=), refer to the [original post](https://www.insanelymac.com/forum/topic/273073-appleigbkext/) for more details. <br />Updated to [Intel IGB source v5.7.2](https://www.intel.com/content/www/us/en/download/14098/13663/intel-network-adapter-driver-for-82575-6-82580-i350-and-i210-211-based-gigabit-network-connections-for-linux.html)
+### Intel onboard LAN driver for macOS. Courtesy of [hnak](https://www.insanelymac.com/forum/profile/228503-hnak/?wr=eyJhcHAiOiJmb3J1bXMiLCJtb2R1bGUiOiJmb3J1bXMtY29tbWVudCIsImlkXzEiOjI3MzA3MywiaWRfMiI6MTc3NTc1Mn0=), refer to the [original post](https://www.insanelymac.com/forum/topic/273073-appleigbkext/) for more details.
+<br />
+- Updated to [Intel IGB source v5.7.2](https://www.intel.com/content/www/us/en/download/14098/13663/intel-network-adapter-driver-for-82575-6-82580-i350-and-i210-211-based-gigabit-network-connections-for-linux.html)
+- Adjustments to properly enable device after sleep (based on [IntelMausi](https://github.com/acidanthera/IntelMausi)) source code
+
 <hr />
 
 ## Supported Devices

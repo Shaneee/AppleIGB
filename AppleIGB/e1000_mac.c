@@ -240,7 +240,11 @@ void e1000_clear_vfta_generic(struct e1000_hw *hw)
  **/
 void e1000_write_vfta_generic(struct e1000_hw *hw, u32 offset, u32 value)
 {
-	DEBUGFUNC("e1000_write_vfta_generic");
+    static bool b = FALSE;
+    if (!b) {
+        DEBUGFUNC("e1000_write_vfta_generic");
+        b = TRUE;
+    }
 
 	E1000_WRITE_REG_ARRAY(hw, E1000_VFTA, offset, value);
 	E1000_WRITE_FLUSH(hw);

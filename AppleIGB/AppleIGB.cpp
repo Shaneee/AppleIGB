@@ -67,7 +67,7 @@ static void* kzalloc(size_t size)
 	if(p){
 		bzero(p, size);
 	} else {
-		IOLog("kzalloc: failed size = %d\n", (int)size );
+		pr_err("kzalloc: failed size = %d\n", (int)size );
 	}
 	return p;
 }
@@ -78,7 +78,7 @@ static void* kcalloc(size_t num, size_t size)
 	if(p){
 		bzero(p, num * size);
 	} else {
-		IOLog("kcalloc: failed num = %d, size = %d\n", (int)num, (int)size );
+		pr_err("kcalloc: failed num = %d, size = %d\n", (int)num, (int)size );
 	}
 	return p;
 }
@@ -95,7 +95,7 @@ static void* vzalloc(size_t size)
 	if(p){
 		bzero(p, size);
 	} else {
-		IOLog("vzalloc: failed size = %d\n", (int)size );
+		pr_err("vzalloc: failed size = %d\n", (int)size );
 	}
 	return p;
 }
@@ -172,7 +172,7 @@ static __be16 vlan_get_protocol(struct sk_buff *skb)
 }
 
 #define	jiffies	_jiffies()
-static uint32_t _jiffies()
+static u64 _jiffies()
 {
 #if defined(MAC_OS_X_VERSION_10_6)
 	clock_sec_t seconds;
@@ -186,7 +186,7 @@ static uint32_t _jiffies()
 }
 #define	HZ	250
 
-static int time_after(uint32_t a, uint32_t b)
+static int time_after(u64 a, u64 b)
 {
 	if(a > b)
 		return 1;
@@ -210,7 +210,7 @@ static int pci_enable_device_mem(IOPCIDevice *dev)
 static int pci_enable_msi_block(IOPCIDevice *dev )
 {
 	unsigned int nvec = 1;
-	int status, maxvec;
+	int status = -EINVAL, maxvec;
 	u16 msgctl;
 
 	u8 pos;
@@ -434,9 +434,11 @@ u32 e1000_read_reg(struct e1000_hw *hw, u32 reg)
 	u8 __iomem *hw_addr = ACCESS_ONCE(hw->hw_addr);
 	u32 value = 0;
 	
-	if (E1000_REMOVED(hw_addr))
-		return ~value;
-	
+    if (E1000_REMOVED(hw_addr)) {
+        pr_err("hw_addr removed, can't read\n");
+        return ~value;
+    }
+
 	value = readl(&hw_addr[reg]);
 	
 	/* reads should not return all F's */
@@ -444,8 +446,8 @@ u32 e1000_read_reg(struct e1000_hw *hw, u32 reg)
 		//AppleIGB *netdev = igb->netdev;
 
 		hw->hw_addr = NULL;
-		//netif_device_detach(netdev);
-		IOLog("PCIe link lost, device now detached\n");
+		//netif_device_detach(netdev); @todo
+		pr_err("PCIe link lost, device now detached\n");
 	}
 	
 	return value;
@@ -926,8 +928,8 @@ static void igb_reset_sriov_capability(struct igb_adapter *adapter)
 			 * clear
 			 */
 			pci_disable_sriov(pdev);
-			msleep(500);
-			IOLog("IOV Disabled\n");
+			msleep(500); // @todo
+			pr_err("IOV Disabled\n");
 		}
 #endif
 
@@ -964,7 +966,7 @@ static void igb_set_sriov_capability(struct igb_adapter *adapter)
 	old_vfs = pci_num_vf(pdev);
 #endif
 	if (old_vfs) {
-		IOLog(	"%d pre-allocated VFs found - override max_vfs setting of %d\n",
+		pr_err(	"%d pre-allocated VFs found - override max_vfs setting of %d\n",
 			  old_vfs,adapter->vfs_allocated_count);
 		adapter->vfs_allocated_count = old_vfs;
  	}
@@ -1015,7 +1017,7 @@ err_out:
 	kfree(adapter->vf_data, sizeof(struct vf_data_storage));
 	adapter->vf_data = NULL;
 	adapter->vfs_allocated_count = 0;
-	IOLog("Failed to initialize SR-IOV virtualization\n");
+	pr_err("Failed to initialize SR-IOV virtualization\n");
 }
 
 /**
@@ -1334,7 +1336,7 @@ static int igb_init_interrupt_scheme(struct igb_adapter *adapter, bool msix)
 	
 	err = igb_alloc_q_vectors(adapter);
 	if (err) {
-		IOLog( "Unable to allocate memory for vectors\n");
+		pr_err("Unable to allocate memory for vectors\n");
 		goto err_alloc_q_vectors;
 	}
 	
@@ -1394,8 +1396,7 @@ static int igb_request_irq(struct igb_adapter *adapter)
 #endif	
 	
 	if (err)
-		IOLog("Error %d getting interrupt\n",
-				err);
+		pr_err("Error %d getting interrupt\n", err);
 	
 request_done:
 	return err;
@@ -1667,8 +1668,8 @@ static void igb_check_swap_media(struct igb_adapter *adapter)
     if (swap_now) {
         switch (hw->phy.media_type) {
             case e1000_media_type_copper:
-                IOLog( "%s:MAS: changing media to fiber/serdes\n",
-                         "AppleIGB");
+                pr_err( "%s:MAS: changing media to fiber/serdes",
+                         "AppleIGB\n");
                 ctrl_ext |=
                 E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES;
                 adapter->flags |= IGB_FLAG_MEDIA_RESET;
@@ -1676,16 +1677,16 @@ static void igb_check_swap_media(struct igb_adapter *adapter)
                 break;
             case e1000_media_type_internal_serdes:
             case e1000_media_type_fiber:
-                IOLog("%s:MAS: changing media to copper\n",
-                         "AppleIGB");
+                pr_err("%s:MAS: changing media to copper",
+                         "AppleIGB\n");
                 ctrl_ext &=
                 ~E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES;
                 adapter->flags |= IGB_FLAG_MEDIA_RESET;
                 break;
             default:
                 /* shouldn't get here during regular operation */
-                IOLog("%s:AMS: Invalid media type found, returning\n",
-                        "AppleIGB");
+                pr_err("%s:AMS: Invalid media type found, returning",
+                        "AppleIGB\n");
                 break;
         }
         E1000_WRITE_REG(hw, E1000_CTRL_EXT, ctrl_ext);
@@ -2084,7 +2085,7 @@ void igb_reset(struct igb_adapter *adapter)
 		igb_enable_mas(adapter);
 	}
 	if (e1000_init_hw(hw))
-		IOLog( "Hardware Error\n");
+		pr_err( "Hardware Error!\n");
 	
 	/*
 	 * Flow control settings reset on hardware reset, so guarantee flow
@@ -2458,8 +2459,8 @@ static void igb_init_mas(struct igb_adapter *adapter)
             break;
         default:
             /* Shouldn't get here */
-            IOLog("%s:AMS: Invalid port configuration, returning\n",
-                    "AppleIGB");
+            pr_err("%s:AMS: Invalid port configuration, returning\n",
+                    "AppleIGB\n");
             break;
     }
 }
@@ -2529,7 +2530,7 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
 
 	/* Initialize the hardware-specific values */
 	if (e1000_setup_init_funcs(hw, TRUE)) {
-		IOLog( "Hardware Initialization Failure\n");
+		pr_err( "Hardware Initialization Failure\n");
 		return -EIO;
 	}
 
@@ -2545,7 +2546,7 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
 		igb_set_sriov_capability(adapter);
 
 	if (igb_init_interrupt_scheme(adapter, true)) {
-		IOLog( "Unable to allocate memory for queues\n");
+		pr_err( "Unable to allocate memory for queues\n");
 		return -ENOMEM;
 	}
 
@@ -2578,21 +2579,27 @@ int igb_open(IOEthernetController *netdev)
 	//int i;
 	
 	/* disallow open during test */
-	if (test_bit(__IGB_TESTING, &adapter->state))
-		return -EBUSY;
-	
+    if (test_bit(__IGB_TESTING, &adapter->state)) {
+        pr_err("disallowed open during test\n");
+        return -EBUSY;
+    }
+
 	netif_carrier_off(netdev);
 	
 	/* allocate transmit descriptors */
 	err = igb_setup_all_tx_resources(adapter);
-	if (err)
-		goto err_setup_tx;
-	
+    if (err) {
+        pr_err("igb_setup_all_tx_resources failed\n");
+        goto err_setup_tx;
+    }
+
 	/* allocate receive descriptors */
 	err = igb_setup_all_rx_resources(adapter);
-	if (err)
-		goto err_setup_rx;
-	
+    if (err) {
+        pr_err("igb_setup_all_rx_resources failed\n");
+        goto err_setup_rx;
+    }
+
 	igb_power_up_link(adapter);
 	
 	/* before we allocate an interrupt, we must be ready to handle it.
@@ -2602,9 +2609,11 @@ int igb_open(IOEthernetController *netdev)
 	igb_configure(adapter);
 	
 	err = igb_request_irq(adapter);
-	if (err)
-		goto err_req_irq;
-	
+    if (err) {
+        pr_err("igb_request_irq failed\n");
+        goto err_req_irq;
+    }
+
 #ifndef __APPLE__
 	/* Notify the stack of the actual queue counts. */
 	netif_set_real_num_tx_queues(netdev,
@@ -2648,9 +2657,9 @@ int igb_open(IOEthernetController *netdev)
 	schedule_work(&adapter->watchdog_task);
 	
 	return E1000_SUCCESS;
-	
+
 err_set_queues:
-	igb_free_irq(adapter);
+	igb_free_irq(adapter); // @todo Code will never be executed
 err_req_irq:
 	igb_release_hw_control(adapter);
 	igb_power_down_link(adapter);
@@ -2741,7 +2750,7 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
 
 err:
 	vfree(tx_ring->tx_buffer_info, size);
-	IOLog("Unable to allocate memory for the transmit descriptor ring\n");
+	pr_err("Unable to allocate memory for the transmit descriptor ring\n");
 	return -ENOMEM;
 }
 
@@ -2760,7 +2769,7 @@ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
 	for (i = 0; i < adapter->num_tx_queues; i++) {
 		err = igb_setup_tx_resources(adapter->tx_ring[i]);
 		if (err) {
-			IOLog(
+			pr_err(
 				"Allocation for Tx Queue %u failed\n", i);
 			for (i--; i >= 0; i--)
 				igb_free_tx_resources(adapter->tx_ring[i]);
@@ -2917,8 +2926,7 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
 err:
 	vfree(rx_ring->rx_buffer_info,size);
 	rx_ring->rx_buffer_info = NULL;
-	IOLog("Unable to allocate memory for the receive descriptor"
-		" ring\n");
+	pr_err("Unable to allocate memory for the receive descriptor ring\n");
 	return -ENOMEM;
 }
 
@@ -2937,8 +2945,7 @@ static int igb_setup_all_rx_resources(struct igb_adapter *adapter)
 	for (i = 0; i < adapter->num_rx_queues; i++) {
 		err = igb_setup_rx_resources(adapter->rx_ring[i]);
 		if (err) {
-			IOLog(
-				"Allocation for Rx Queue %u failed\n", i);
+			pr_err("Allocation for Rx Queue %u failed\n", i);
 			for (i--; i >= 0; i--)
 				igb_free_rx_resources(adapter->rx_ring[i]);
 			break;
@@ -3949,7 +3956,7 @@ static void igb_dma_err_task(struct igb_adapter *adapter,IOTimerEventSource * sr
 			if (ciad & (PCI_STATUS_REC_MASTER_ABORT |
 						PCI_STATUS_REC_TARGET_ABORT |
 						PCI_STATUS_SIG_SYSTEM_ERROR)) {
-				IOLog("VF %d suffered error\n", vf);
+				pr_err("VF %d suffered error\n", vf);
 				/* Issue VFLR */
 				ciaa = (vf << 16) | 0x80000000;
 				ciaa |= 0xA8;
@@ -4341,7 +4348,7 @@ static int igb_tso(struct igb_ring *tx_ring,
 		first->tx_flags |= IGB_TX_FLAGS_TSO |
 		IGB_TX_FLAGS_CSUM |
 		IGB_TX_FLAGS_IPV4;
-	} else if (request & MBUF_TSO_IPV6) {
+	} else {
 		struct ip6_hdr *iph = ip6_hdr(skb);
 		tcph = tcp6_hdr(skb);
 		ip_len = ((u8*)tcph - (u8*)iph);
@@ -4749,7 +4756,7 @@ static bool igb_tx_map(struct igb_ring *tx_ring,
 	return TRUE;
 #ifndef __APPLE__
 dma_error:
-	IOLog( "TX DMA map failed\n");
+	pr_err("TX DMA map failed\n");
 
 	/* clear dma mappings for failed tx_buffer_info map */
 	for (;;) {
@@ -5661,7 +5668,7 @@ static void igb_clear_vf_vfta(struct igb_adapter *adapter, u32 vf)
 s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
 {
 	struct e1000_hw *hw = &adapter->hw;
-	u32 reg, i;
+	u32 reg = 0, i;
 
 	/* The vlvf table only exists on 82576 hardware and newer */
 	if (hw->mac.type < e1000_82576)
@@ -6032,7 +6039,7 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
 	retval = e1000_read_mbx(hw, msgbuf, E1000_VFMAILBOX_SIZE, vf);
 
 	if (retval) {
-		IOLog( "Error receiving message from VF\n");
+		pr_err( "Error receiving message from VF\n");
 		return;
 	}
 
@@ -6094,7 +6101,7 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
 			retval = igb_set_vf_vlan(adapter, msgbuf, vf);
 		break;
 	default:
-		IOLog( "Unhandled Msg %08x\n", msgbuf[0]);
+		pr_err( "Unhandled Msg %08x\n", msgbuf[0]);
 		retval = -E1000_ERR_MBX;
 		break;
 	}
@@ -6439,13 +6446,13 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
 #ifdef DEBUG
 			adapter->tx_hang_detected = TRUE;
 			if (adapter->disable_hw_reset) {
-				IOLog("Deactivating netdev watchdog timer\n");
+				pr_err("Deactivating netdev watchdog timer\n");
 #ifndef HAVE_NET_DEVICE_OPS
 				//netdev_ring(tx_ring)->tx_timeout = NULL;
 #endif
 			}
 #endif /* DEBUG */
-			IOLog(
+			pr_err(
 				"Detected Tx Unit Hang\n"
 				"  Tx Queue             <%d>\n"
 				"  TDH                  <%x>\n"
@@ -6867,7 +6874,6 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
 			vid = le16_to_cpu(rx_desc->wb.upper.vlan);
 	}
 	if(vid){
-        //IOLog("vlan(in) = %d\n",(int)vid);
         dev->setVid(skb,(UInt32)vid);
     }
 
@@ -7769,7 +7775,7 @@ static int igb_resume(struct pci_dev *pdev)
 
 	err = pci_enable_device_mem(pdev);
 	if (err) {
-		IOLog( "igb: Cannot enable PCI device from suspend\n");
+		pr_err("igb: Cannot enable PCI device from suspend\n");
 		return err;
 	}
 	pci_set_master(pdev);
@@ -7778,7 +7784,7 @@ static int igb_resume(struct pci_dev *pdev)
 	pci_enable_wake(pdev, PCI_D3cold, 0);
 
 	if (igb_init_interrupt_scheme(adapter, true)) {
-			IOLog( "Unable to allocate memory for queues\n");
+			pr_err("Unable to allocate memory for queues\n");
 		return -ENOMEM;
 	}
 
@@ -8171,7 +8177,7 @@ static void igb_init_fw(struct igb_adapter *adapter)
 				break;
 		}
 	} else
-		IOLog( "Unable to get semaphore, firmware init failed.\n");
+		pr_err( "Unable to get semaphore, firmware init failed.\n");
 	hw->mac.ops.release_swfw_sync(hw, mask);
 }
 
@@ -8376,7 +8382,7 @@ int igb_reinit_queues(struct igb_adapter *adapter)
 	igb_reset_interrupt_capability(adapter);
 	
 	if (igb_init_interrupt_scheme(adapter, true)) {
-		IOLog("Unable to allocate memory for queues\n");
+		pr_err("Unable to allocate memory for queues\n");
 		return -ENOMEM;
 	}
 	
@@ -8389,6 +8395,7 @@ int igb_reinit_queues(struct igb_adapter *adapter)
 		
 /* igb_main.c */
 
+os_log_t igb_logger = OS_LOG_DEFAULT;
 
 OSDefineMetaClassAndStructors(AppleIGB, super);
 
@@ -8402,6 +8409,8 @@ void AppleIGB::free()
 		
 bool AppleIGB::init(OSDictionary *properties)
 {
+    igb_logger = os_log_create("com.amdosx.driver.AppleIGB", "Drivers");
+
 	if (super::init(properties) == false) 
 		return false;
 		
@@ -8457,7 +8466,7 @@ void AppleIGB::igb_remove()
 	
 #ifdef IGB_DCA
 	if (adapter->flags & IGB_FLAG_DCA_ENABLED) {
-		IOLog("DCA disabled\n");
+		pr_err("DCA disabled\n");
 		dca_remove_requester(&pdev->dev);
 		adapter->flags &= ~IGB_FLAG_DCA_ENABLED;
 		E1000_WRITE_REG(hw, E1000_DCA_CTRL, E1000_DCA_CTRL_DCA_DISABLE);
@@ -8534,6 +8543,8 @@ void AppleIGB::stop(IOService* provider)
 	igb_remove();
 
 	RELEASE(pdev);
+
+    enabledForNetif = false;
 
 	super::stop(provider);
 }
@@ -8657,7 +8668,7 @@ bool AppleIGB::igb_probe()
 		}
 		
 		if (e1000_check_reset_block(hw))
-			IOLog("PHY reset is blocked due to SOL/IDER session.\n");
+			pr_err("PHY reset is blocked due to SOL/IDER session.\n");
 		
 		/*
 		 * features is initialized to 0 in allocation, it might have bits
@@ -8707,7 +8718,7 @@ bool AppleIGB::igb_probe()
 		adapter->en_mng_pt = e1000_enable_mng_pass_thru(hw);
 #ifdef DEBUG
 		if (adapter->dmac != IGB_DMAC_DISABLE)
-			IOLog("DMA Coalescing is enabled..\n");
+			pr_err("DMA Coalescing is enabled..\n");
 #endif
 		
 		/* before reading the NVM, reset the controller to put the device in a
@@ -8716,17 +8727,16 @@ bool AppleIGB::igb_probe()
 		
 		/* make sure the NVM is good */
 		if (e1000_validate_nvm_checksum(hw) < 0) {
-			IOLog( "The NVM Checksum Is Not"
-				  " Valid\n");
+			pr_err("The NVM Checksum Is Not Valid\n");
 			goto err_eeprom;
 		}
 		
 		/* copy the MAC address out of the NVM */
 		if (e1000_read_mac_addr(hw))
-			IOLog( "NVM Read Error\n");
+            pr_err("NVM Read Error\n");
 		
 		if (!is_valid_ether_addr(hw->mac.addr)) {
-			IOLog( "Invalid MAC Address\n");
+            pr_err("Invalid MAC Address\n");
 			goto err_eeprom;
 		}
 		
@@ -8815,7 +8825,7 @@ bool AppleIGB::igb_probe()
 		/* initialize the wol settings based on the eeprom settings */
 		if (adapter->flags & IGB_FLAG_WOL_SUPPORTED)
 			adapter->wol |= E1000_WUFC_MAG;
-		
+/* @todo */
 #if	0
 		/* Some vendors want the ability to Use the EEPROM setting as
 		 * enable/disable only, and not for capability
@@ -8873,9 +8883,9 @@ bool AppleIGB::igb_probe()
 		igb_ptp_init(adapter);
 		
 #endif /* HAVE_PTP_1588_CLOCK */
-		IOLog("Intel(R) Gigabit Ethernet Network Connection\n");
+		pr_err("Intel(R) Gigabit Ethernet Network Connection\n");
 		/* print bus type/speed/width info */
-		IOLog("%s: (PCIe:%s:%s) ",
+		pr_err("%s: (PCIe:%s:%s) ",
 			  "AppleIGB",
 			  ((hw->bus.speed == e1000_bus_speed_2500) ? "2.5GT/s" :
 			   (hw->bus.speed == e1000_bus_speed_5000) ? "5.0GT/s" :
@@ -8884,11 +8894,11 @@ bool AppleIGB::igb_probe()
 			   (hw->bus.width == e1000_bus_width_pcie_x2) ? "Width x2" :
 			   (hw->bus.width == e1000_bus_width_pcie_x1) ? "Width x1" :
 			   (hw->mac.type == e1000_i354) ? "integrated" : "unknown"));
-		IOLog("MAC: %2x:%2x:%2x:%2x:%2x:%2x ",
+		pr_err("MAC: %2x:%2x:%2x:%2x:%2x:%2x ",
 			  hw->mac.addr[0],hw->mac.addr[1],hw->mac.addr[2],
 			  hw->mac.addr[3],hw->mac.addr[4],hw->mac.addr[5]);
 		ret_val = e1000_read_pba_string(hw, pba_str, E1000_PBANUM_LENGTH);
-		IOLog("PBA No: %s\n", ret_val ? "Unknown": (char*)pba_str);
+		pr_err("PBA No: %s\n", ret_val ? "Unknown": (char*)pba_str);
 		
 		/* Initialize the thermal sensor on i350 devices. */
 		if (hw->mac.type == e1000_i350) {
@@ -8940,7 +8950,7 @@ bool AppleIGB::igb_probe()
 		if ((hw->mac.type >= e1000_i350) &&
 			(e1000_get_flash_presence_i210(hw)))
 			igb_init_fw(adapter);
-		IOLog(
+		pr_err(
 			  "Using %s interrupts. %d rx queue(s), %d tx queue(s)\n",
 			  adapter->msix_entries ? "MSI-X" :
 			  (adapter->flags & IGB_FLAG_HAS_MSI) ? "MSI" : "legacy",
@@ -8995,7 +9005,9 @@ int AppleIGB::getIntOption(const char *name, int defVal, int maxVal, int minVal 
 		
 bool AppleIGB::start(IOService* provider)
 {
-	DEBUGOUT("start()\n");
+    igb_logger = os_log_create("com.amdosx.driver.AppleIGB", "Drivers");
+
+	pr_err("start()\n");
 	
 	if (super::start(provider) == false) {
 		return false;
@@ -9099,37 +9111,64 @@ bool AppleIGB::initEventSources( IOService* provider )
 //---------------------------------------------------------------------------
 IOReturn AppleIGB::enable(IONetworkInterface * netif)
 {
-	DEBUGOUT("enable()\n");
+	pr_err("enable() ===>\n");
 	if(!enabledForNetif){
 		pdev->open(this);
+
+        if (selectMedium(getSelectedMedium()) != kIOReturnSuccess) {
+            pr_err("Failed to select medium\n");
+            return kIOReturnIOError;
+        }
 		
-		if (selectMedium(getSelectedMedium()) != kIOReturnSuccess)
-			return kIOReturnIOError;
-		
-		if(igb_open(this))
-			return kIOReturnIOError;
+        if(igb_open(this)) {
+            pr_err("igb_open failed \n");
+            return kIOReturnIOError;
+        }
+
+        if (!igb_has_link(&priv_adapter)) {
+            pr_err("Setting Active | Valid link status");
+            if (!setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive, getCurrentMedium())) {
+                pr_err("Failed to setLinkStatus\n");
+            }
+        }
 		
         // hack to accept any VLAN
         for(u16 k = 1; k < 4096; k++){
             igb_vlan_rx_add_vid(this,k);
         }
-        
+
+        interruptSource->enable();
+
 		enabledForNetif = true;
-	}
+    } else {
+        pr_err("enabled already \n");
+    }
+    pr_err("enable() <===\n");
 	return kIOReturnSuccess; 
 
 }
 
 IOReturn AppleIGB::disable(IONetworkInterface * netif)
 {
-	DEBUGOUT("disable()\n");
+    u32 linkStatus = kIONetworkLinkValid;
+	pr_err("disable()\n");
+
 	if(enabledForNetif){
 		enabledForNetif = false;
 
+        interruptSource->disable();
+
 		igb_close(this);
 
-		pdev->close(this);
-	}
+        igb_irq_disable(&priv_adapter);
+
+        setLinkStatus(linkStatus);
+
+        if (pdev && pdev->isOpen())
+            pdev->close(this);
+    } else {
+        pr_err("disable() on not enabled interface\n");
+    }
 	return kIOReturnSuccess;
 }
 
@@ -9167,7 +9206,7 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
          * otherwise try next time */
 		if (igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 3)) {
             /* this is a hard error */
-			//IOLog("igb_maybe_stop_tx() returns TRUE\n");
+			//pr_err("igb_maybe_stop_tx() returns TRUE\n");
 			netStats->outputErrors += 1;
 			freePacket(skb);
 			break;
@@ -9195,7 +9234,7 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
         
         UInt32 vlan;
         if(getVlanTagDemand(skb,&vlan)){
-			//IOLog("vlan(out) = %d\n",(int)vlan);
+			//pr_err("vlan(out) = %d\n",(int)vlan);
             tx_flags |= IGB_TX_FLAGS_VLAN;
             tx_flags |= (vlan << IGB_TX_FLAGS_VLAN_SHIFT);
         }
@@ -9347,7 +9386,7 @@ IOReturn AppleIGB::selectMedium(const IONetworkMedium * medium)
 				case kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex:
 				case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex:
 				case kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex:
-					IOLog("Unsupported Speed/Duplex configuration\n");
+					pr_err("Unsupported Speed/Duplex configuration\n");
 					return kIOReturnIOError;
 				default:
 					break;
@@ -9372,7 +9411,7 @@ IOReturn AppleIGB::selectMedium(const IONetworkMedium * medium)
 				hw->phy.autoneg_advertised = ADVERTISE_1000_FULL;
 				break;
 			default:
-				IOLog( "Unsupported Speed/Duplex configuration\n");
+				pr_err( "Unsupported Speed/Duplex configuration\n");
 				return kIOReturnIOError;
 		}
 		
@@ -9397,14 +9436,14 @@ bool AppleIGB::configureInterface(IONetworkInterface * interface)
 	IONetworkData * data = NULL;
 	
 	if (super::configureInterface(interface) == false) {
-		IOLog("IOEthernetController::confiugureInterface failed.\n"); 
+		pr_err("IOEthernetController::confiugureInterface failed.\n");
 		return false;
 	}
 	
 	// Get the generic network statistics structure.
 	data = interface->getParameter(kIONetworkStatsKey);
 	if (!data || !(netStats = (IONetworkStats *) data->getBuffer())) {
-		IOLog("netif getParameter NetworkStatsKey failed."); 
+		pr_err("netif getParameter NetworkStatsKey failed.\n");
 		return false;
 	}
 	
@@ -9412,7 +9451,7 @@ bool AppleIGB::configureInterface(IONetworkInterface * interface)
 	
 	data = interface->getParameter(kIOEthernetStatsKey);
 	if (!data || !(etherStats = (IOEthernetStats *) data->getBuffer())) {
-		IOLog("netif getParameter kIOEthernetStatsKey failed."); 
+		pr_err("netif getParameter kIOEthernetStatsKey failed.\n");
 		return false;
 	}
 	
@@ -9502,7 +9541,7 @@ IOReturn AppleIGB::getChecksumSupport(UInt32 *checksumMask, UInt32 checksumFamil
 {
 	*checksumMask = 0;
 	if( checksumFamily != kChecksumFamilyTCPIP ) {
-		IOLog("AppleIGB: Operating system wants information for unknown checksum family.\n");
+		pr_err("AppleIGB: Operating system wants information for unknown checksum family.\n");
 		return kIOReturnUnsupported;
 	}
 	/*
@@ -9530,12 +9569,13 @@ bool AppleIGB::addNetworkMedium(UInt32 type, UInt32 bps, UInt32 index)
 	
 	medium = IONetworkMedium::medium(type, bps, 0, index);
 	if (!medium) {
-		IOLog("Couldn't allocate medium.\n");
+		pr_err("Couldn't allocate medium.\n");
 		return false;
 	}
 	
 	if (!IONetworkMedium::addMedium(mediumDict, medium)) {
-		IOLog("Couldn't add medium.\n");
+		pr_err("Couldn't add medium.\n");
+        RELEASE(medium);
 		return false;
 	}
 	
@@ -9637,7 +9677,7 @@ void AppleIGB::watchdogTask()
 			
 			ctrl = E1000_READ_REG(hw, E1000_CTRL);
 			/* Links status message must follow this format */
-			IOLog("igb: Link is Up %d Mbps %s, "
+			pr_err("igb: Link is Up %d Mbps %s, "
 				   "Flow Control: %s\n",
 			       adapter->link_speed,
 			       adapter->link_duplex == FULL_DUPLEX ?
@@ -9673,9 +9713,9 @@ void AppleIGB::watchdogTask()
 		}
 #if CAN_RECOVER_STALL
 		if(queueStopped()){
-			IOLog("watchdogTask: queue is stopped.\n");
+			pr_err("watchdogTask: queue is stopped.\n");
 			if(!igb_maybe_stop_tx(tx_ring,MAX_SKB_FRAGS + 4)){
-				IOLog("Restart TxQueue.\n");
+				pr_err("Restart TxQueue.\n");
 				startTxQueue();
 			}
 		}
@@ -9693,17 +9733,17 @@ void AppleIGB::watchdogTask()
 					!(ctrl_ext &
 					  E1000_CTRL_EXT_LINK_MODE_SGMII)) {
 						if (thstat & E1000_THSTAT_PWR_DOWN) {
-							IOLog("igb: The "
+							pr_err("igb: The "
 								   "network adapter was stopped because it overheated.\n");
 						}
 						if (thstat & E1000_THSTAT_LINK_THROTTLE) {
-							IOLog("igb: The network adapter supported link speed was downshifted because it overheated.\n" );
+							pr_err("igb: The network adapter supported link speed was downshifted because it overheated.\n" );
 						}
 					}
 			}
 			
 			/* Links status message must follow this format */
-			IOLog("igb: NIC Link is Down\n");
+			pr_err("igb: NIC Link is Down\n");
 			netif_carrier_off(this);
 			netif_tx_stop_all_queues(this);
 			
@@ -9816,20 +9856,20 @@ IOReturn AppleIGB::registerWithPolicyMaker ( IOService * policyMaker )
 IOReturn AppleIGB::setPowerState( unsigned long powerStateOrdinal,
 								IOService *policyMaker )
 {
-	DEBUGOUT1("setPowerState(%d)\n",(int)powerStateOrdinal);
+	pr_err("setPowerState(%d)\n",(int)powerStateOrdinal);
 	if (powerState == powerStateOrdinal)
 		return IOPMAckImplied;
 	powerState = powerStateOrdinal;
 
 	if(powerStateOrdinal == 0){ // SUSPEND/SHUTDOWN
-		DEBUGOUT("suspend start.\n");
+		pr_err("suspend start.\n");
 		// ???
-		DEBUGOUT("suspend end.\n");
+		pr_err("suspend end.\n");
 		bSuspended = TRUE;
 	} else if(bSuspended) { // WAKE
-		DEBUGOUT("resume start.\n");
+		pr_err("resume start.\n");
 		// ???
-		DEBUGOUT("resume end.\n");
+		pr_err("resume end.\n");
 		bSuspended = FALSE;
 	}
 	/* acknowledge the completion of our power state change */
@@ -9853,7 +9893,7 @@ IOReturn AppleIGB::getMinPacketSize (UInt32 *minSize) const {
 
 
 IOReturn AppleIGB::setMaxPacketSize (UInt32 maxSize){
-	IOLog("AppleIGB::setMaxPacketSize(%d)\n",(int)maxSize);
+	pr_err("AppleIGB::setMaxPacketSize(%d)\n",(int)maxSize);
 	UInt32 newMtu = maxSize  - (ETH_HLEN + ETH_FCS_LEN);
 	if(newMtu != _mtu){
         _mtu = newMtu;
@@ -9909,7 +9949,7 @@ UInt32 AppleIGB::getFeatures() const {
 
 void AppleIGB::startTxQueue()
 {
-	IOLog("AppleIGB::startTxQueue()\n");
+	pr_debug("AppleIGB::startTxQueue()");
 	txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN, MAX_SKB_FRAGS);
 	if(txMbufCursor && transmitQueue)
 		transmitQueue->start();
@@ -9917,7 +9957,7 @@ void AppleIGB::startTxQueue()
 
 void AppleIGB::stopTxQueue()
 {
-	IOLog("AppleIGB::stopTxQueue()\n");
+    pr_debug("AppleIGB::stopTxQueue()");
 	transmitQueue->stop();
 	transmitQueue->flush();
 	RELEASE(txMbufCursor);
