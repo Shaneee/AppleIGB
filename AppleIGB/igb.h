@@ -43,6 +43,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <libkern/OSAtomic.h>
+#include <os/log.h>
 #else /* __APPLE_ */
 #include <linux/kobject.h>
 
@@ -83,17 +84,6 @@ struct igb_adapter;
 #include "e1000_manage.h"
 #include "e1000_mbx.h"
 
-#define IGB_ERR(args...) pr_err(KERN_ERR "igb: " args)
-
-#define PFX "igb: "
-#ifdef	__APPLE__
-#define DPRINTK(nlevel, klevel, fmt, args...)
-#else
-#define DPRINTK(nlevel, klevel, fmt, args...) \
-	(void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
-	printk(KERN_##klevel PFX "%s: %s: " fmt, adapter->netdev->name, \
-		__func__ , ## args))
-#endif
 
 #ifdef HAVE_PTP_1588_CLOCK
 #ifdef HAVE_INCLUDE_LINUX_TIMECOUNTER_H

@@ -1582,7 +1582,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
 s32 e1000_setup_copper_link_generic(struct e1000_hw *hw)
 {
 	s32 ret_val;
-	bool link;
+	bool link = TRUE;
 
 	DEBUGFUNC("e1000_setup_copper_link_generic");
 
@@ -2267,8 +2267,10 @@ s32 e1000_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
 		ret_val = hw->phy.ops.read_reg(hw, PHY_STATUS, &phy_status);
 		if (ret_val)
 			break;
-		if (phy_status & MII_SR_LINK_STATUS)
+        if (phy_status & MII_SR_LINK_STATUS)
 			break;
+        else
+            DEBUGOUT1("No link register status %u", phy_status);
 		if (usec_interval >= 1000)
 			msec_delay(usec_interval/1000);
 		else

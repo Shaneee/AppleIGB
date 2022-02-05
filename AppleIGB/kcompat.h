@@ -7,6 +7,8 @@
 #ifndef _KCOMPAT_H_
 #define _KCOMPAT_H_
 
+#include <os/log.h>
+
 typedef __int64_t s64;
 typedef __int32_t s32;
 typedef __int16_t s16;
@@ -296,10 +298,42 @@ typedef void AppleIGB;
 #define mb()
 
 #define	__MODULE_STRING(s)	"x"
-#define	pr_debug(args...)	IOLog(args)
-#define	pr_err(args...)	IOLog(args)
-#define	dev_warn(dev,args...)	IOLog(args)
-#define	dev_info(dev,args...)	IOLog(args)
+
+/** DPRINTK specific variables*/
+#define DRV 0x00
+#define PROBE 0x01
+
+extern os_log_t igb_logger;
+
+/** Have to redefine log types as macOS log doesn't have warning for DPRINTK*/
+#define K_LOG_TYPE_NOTICE OS_LOG_TYPE_DEFAULT
+#define K_LOG_TYPE_INFO OS_LOG_TYPE_INFO
+#define K_LOG_TYPE_DEBUG OS_LOG_TYPE_DEBUG
+#define K_LOG_TYPE_WARNING OS_LOG_TYPE_ERROR
+#define K_LOG_TYPE_ERROR OS_LOG_TYPE_FAULT
+
+#define PFX "igb: "
+#ifdef DEBUG
+#define    pr_debug(args...)    os_log_debug(igb_logger, PFX args)
+#else
+#define    pr_debug(args...)    do { } while (0)
+#endif
+#define    pr_err(args...)      os_log_error(igb_logger, PFX args)
+#define    dev_warn(dev,args...)    os_log_error(igb_logger, PFX##dev##args)
+#define    dev_info(dev,args...)    os_log_info(igb_logger, PFX##dev##args)
+
+#define IGB_ERR(args...) pr_err("IGBERR " PFX ##args)
+
+#ifdef    __APPLE__
+#define DPRINTK(nlevel, klevel, fmt, args...) \
+    os_log_with_type(igb_logger, K_LOG_TYPE_##klevel, PFX fmt, ## args)
+#else
+#define DPRINTK(nlevel, klevel, fmt, args...) \
+    (void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
+    printk(KERN_##klevel PFX "%s: %s: " fmt, adapter->netdev->name, \
+        __func__ , ## args))
+#endif
+
 #define	in_interrupt()	(0)
 
 #define __stringify_1(x...)     #x

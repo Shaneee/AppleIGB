@@ -56,7 +56,7 @@ static void e1000_release_nvm_i210(struct e1000_hw *hw)
  **/
 s32 e1000_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
 {
-	u32 swfw_sync;
+	u32 swfw_sync = 0;
 	u32 swmask = mask;
 	u32 fwmask = mask << 16;
 	s32 ret_val = E1000_SUCCESS;
@@ -116,7 +116,7 @@ void e1000_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
 		; /* Empty */
 
 	swfw_sync = E1000_READ_REG(hw, E1000_SW_FW_SYNC);
-	swfw_sync &= ~mask;
+	swfw_sync &= (u32)~mask;
 	E1000_WRITE_REG(hw, E1000_SW_FW_SYNC, swfw_sync);
 
 	e1000_put_hw_semaphore_generic(hw);
