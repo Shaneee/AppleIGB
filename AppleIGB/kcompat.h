@@ -60,6 +60,14 @@ typedef __uint8_t u8;
 #define	readw(reg)	_OSReadInt16(reg, 0)
 #define read_barrier_depends()
 
+#define intelWriteMem8(reg, val8)       _OSWriteInt8((baseAddr), (reg), (val8))
+#define intelWriteMem16(reg, val16)     OSWriteLittleInt16((baseAddr), (reg), (val16))
+#define intelWriteMem32(reg, val32)     OSWriteLittleInt32((baseAddr), (reg), (val32))
+#define intelReadMem8(reg)              _OSReadInt8((baseAddr), (reg))
+#define intelReadMem16(reg)             OSReadLittleInt16((baseAddr), (reg))
+#define intelReadMem32(reg)             OSReadLittleInt32((baseAddr), (reg))
+#define intelFlush()                    OSReadLittleInt32((baseAddr), (E1000_STATUS))
+
 #ifdef	ALIGN
 #undef	ALIGN
 #endif
@@ -303,6 +311,10 @@ typedef void AppleIGB;
 #define DRV 0x00
 #define PROBE 0x01
 
+#define PFX "igb: "
+
+#ifdef APPLE_OS_LOG
+
 extern os_log_t igb_logger;
 
 /** Have to redefine log types as macOS log doesn't have warning for DPRINTK*/
@@ -312,27 +324,37 @@ extern os_log_t igb_logger;
 #define K_LOG_TYPE_WARNING OS_LOG_TYPE_ERROR
 #define K_LOG_TYPE_ERROR OS_LOG_TYPE_FAULT
 
-#define PFX "igb: "
-#ifdef DEBUG
-#define    pr_debug(args...)    os_log_debug(igb_logger, PFX args)
-#else
-#define    pr_debug(args...)    do { } while (0)
-#endif
-#define    pr_err(args...)      os_log_error(igb_logger, PFX args)
-#define    dev_warn(dev,args...)    os_log_error(igb_logger, PFX##dev##args)
-#define    dev_info(dev,args...)    os_log_info(igb_logger, PFX##dev##args)
 
-#define IGB_ERR(args...) pr_err("IGBERR " PFX ##args)
+
+#define    pr_debug(args...)    os_log_debug(igb_logger, PFX args)
+#define    pr_err(args...)      os_log_error(igb_logger, PFX args)
+#define    dev_warn(dev,args...)    os_log_error(igb_logger, PFX##dev args)
+#define    dev_info(dev,args...)    os_log_info(igb_logger, PFX##dev args)
+
+#define IGB_ERR(args...) pr_err("IGBERR " PFX args)
 
 #ifdef    __APPLE__
 #define DPRINTK(nlevel, klevel, fmt, args...) \
-    os_log_with_type(igb_logger, K_LOG_TYPE_##klevel, PFX fmt, ## args)
+    os_log_with_type(igb_logger, K_LOG_TYPE_##klevel, PFX fmt, args)
 #else
 #define DPRINTK(nlevel, klevel, fmt, args...) \
     (void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
     printk(KERN_##klevel PFX "%s: %s: " fmt, adapter->netdev->name, \
         __func__ , ## args))
 #endif
+
+#else
+
+#define    pr_debug(args...)    IOLog(PFX args)
+#define    pr_err(args...)      IOLog(PFX args)
+#define    dev_warn(dev,args...)    IOLog(PFX args)
+#define    dev_info(dev,args...)    IOLog(PFX args)
+
+#define IGB_ERR(args...) pr_err("IGBERR " PFX args)
+
+#define DPRINTK(nlevel, klevel, fmt, args...) IOLog(PFX fmt, ##args)
+
+#endif /* APPLE_OS_LOG */
 
 #define	in_interrupt()	(0)
 

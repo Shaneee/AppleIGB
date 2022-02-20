@@ -2577,7 +2577,9 @@ int igb_open(IOEthernetController *netdev)
 	struct e1000_hw *hw = &adapter->hw;
 	int err;
 	//int i;
-	
+
+    pr_debug("igb_open() ===>\n");
+
 	/* disallow open during test */
     if (test_bit(__IGB_TESTING, &adapter->state)) {
         pr_err("disallowed open during test\n");
@@ -2601,7 +2603,8 @@ int igb_open(IOEthernetController *netdev)
     }
 
 	igb_power_up_link(adapter);
-	
+    pr_debug("Powered up link.\n");
+
 	/* before we allocate an interrupt, we must be ready to handle it.
 	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
 	 * as soon as we call pci_request_irq, so we have to setup our
@@ -2626,9 +2629,10 @@ int igb_open(IOEthernetController *netdev)
 	if (err)
 		goto err_set_queues;
 #endif
-	
+
 	/* From here on the code is the same as igb_up() */
 	clear_bit(__IGB_DOWN, &adapter->state);
+
 #ifndef __APPLE__
 	for (i = 0; i < adapter->num_q_vectors; i++)
 		napi_enable(&(adapter->q_vector[i]->napi));
@@ -2646,7 +2650,7 @@ int igb_open(IOEthernetController *netdev)
 		reg_data |= E1000_CTRL_EXT_PFRSTD;
 		E1000_WRITE_REG(hw, E1000_CTRL_EXT, reg_data);
 	}
-	
+
 	netif_tx_start_all_queues(netdev);
 	
 	if (adapter->flags & IGB_FLAG_DETECT_BAD_DMA)
@@ -2654,12 +2658,21 @@ int igb_open(IOEthernetController *netdev)
 	
 	/* start the watchdog. */
 	hw->mac.get_link_status = 1;
-	schedule_work(&adapter->watchdog_task);
-	
+    if (adapter->watchdog_task)
+        schedule_work(&adapter->watchdog_task);
+    else {
+        pr_err("No watchdog_task set. Nothing scheduled. \n");
+        err = 0xdeadbeef;
+        goto err_req_irq;
+    }
+
+    pr_debug("igb_open() <===\n");
 	return E1000_SUCCESS;
 
+#ifndef __APPLE__
 err_set_queues:
 	igb_free_irq(adapter); // @todo Code will never be executed
+#endif /*__APPLE__*/
 err_req_irq:
 	igb_release_hw_control(adapter);
 	igb_power_down_link(adapter);
@@ -8394,8 +8407,31 @@ int igb_reinit_queues(struct igb_adapter *adapter)
 		
 		
 /* igb_main.c */
-
+#ifdef APPLE_OS_LOG
 os_log_t igb_logger = OS_LOG_DEFAULT;
+#endif
+
+static IOMediumType mediumTypeArray[MEDIUM_INDEX_COUNT] = {
+        kIOMediumEthernetAuto,
+        (kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex),
+        (kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex),
+        (kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex),
+        (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex),
+        (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl),
+        (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex),
+        (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl)
+};
+
+static UInt32 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
+        0,
+        10 * MBit,
+        10 * MBit,
+        100 * MBit,
+        100 * MBit,
+        100 * MBit,
+        1000 * MBit,
+        1000 * MBit,
+};
 
 OSDefineMetaClassAndStructors(AppleIGB, super);
 
@@ -8406,21 +8442,78 @@ void AppleIGB::free()
 	
 	super::free();
 }
-		
+
+bool AppleIGB::setupMediumDict()
+{
+        IONetworkMedium *medium;
+        UInt32 count;
+        UInt32 i;
+        bool result = false;
+
+        pr_debug("setupMediumDict() ===>\n");
+
+        if (priv_adapter.hw.phy.media_type == e1000_media_type_fiber) {
+            count = 1;
+        } else {
+            count = MEDIUM_INDEX_COUNT;
+        }
+        mediumDict = OSDictionary::withCapacity(count + 1);
+
+        if (mediumDict) {
+            for (i = MEDIUM_INDEX_AUTO; i < count; i++) {
+                medium = IONetworkMedium::medium(mediumTypeArray[i], mediumSpeedArray[i], 0, i);
+
+                if (!medium)
+                    goto error1;
+
+                result = IONetworkMedium::addMedium(mediumDict, medium);
+                medium->release();
+
+                if (!result)
+                    goto error1;
+
+                mediumTable[i] = medium;
+            }
+        }
+        result = publishMediumDictionary(mediumDict);
+
+        if (!result)
+            goto error1;
+
+    done:
+        pr_debug("setupMediumDict() <===\n");
+        return result;
+
+    error1:
+        pr_err("Error creating medium dictionary.\n");
+        mediumDict->release();
+
+        for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
+            mediumTable[i] = NULL;
+
+        goto done;
+}
+
 bool AppleIGB::init(OSDictionary *properties)
 {
+    #ifdef APPLE_OS_LOG
     igb_logger = os_log_create("com.amdosx.driver.AppleIGB", "Drivers");
+    #endif
 
 	if (super::init(properties) == false) 
 		return false;
 		
 	enabledForNetif = false;
+    workLoop = NULL;
 
 	pdev = NULL;
 	mediumDict = NULL;
 	csrPCIAddress = NULL;
 	interruptSource = NULL;
 	watchdogSource = NULL;
+    resetSource = NULL;
+    dmaErrSource = NULL;
+
 	netif = NULL;
 	
 	transmitQueue = NULL;
@@ -8428,24 +8521,9 @@ bool AppleIGB::init(OSDictionary *properties)
 	txMbufCursor = NULL;
 	bSuspended = FALSE;
 
+    linkUp = FALSE;
+
 	_mtu = 1500;
-
-	mediumDict = OSDictionary::withCapacity(MEDIUM_INDEX_COUNT + 1);
-	if (mediumDict == NULL) {
-		return false;
-	}
-
-	addNetworkMedium(kIOMediumEthernetAuto, 0, MEDIUM_INDEX_AUTO);
-	addNetworkMedium(kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex,
-					 10 * MBit, MEDIUM_INDEX_10HD);
-	addNetworkMedium(kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex,
-					 10 * MBit, MEDIUM_INDEX_10FD);
-	addNetworkMedium(kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex,
-					 100 * MBit, MEDIUM_INDEX_100HD);
-	addNetworkMedium(kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex,
-					 100 * MBit, MEDIUM_INDEX_100FD);
-	addNetworkMedium(kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex,
-					 1000 * MBit, MEDIUM_INDEX_1000FD);
 
 	return true;
 }
@@ -9005,7 +9083,10 @@ int AppleIGB::getIntOption(const char *name, int defVal, int maxVal, int minVal 
 		
 bool AppleIGB::start(IOService* provider)
 {
+    bool result = false;
+    #ifdef APPLE_OS_LOG
     igb_logger = os_log_create("com.amdosx.driver.AppleIGB", "Drivers");
+    #endif
 
 	pr_err("start()\n");
 	
@@ -9026,23 +9107,37 @@ bool AppleIGB::start(IOService* provider)
 #else
 	useTSO = FALSE;
 #endif
-	
-	if(!initEventSources(provider))
-		return false;
-	
-	if(!igb_probe())
-		return false;
+
+    if (!setupMediumDict()) {
+        pr_err("Failed to setupMediumDict\n");
+        return false;
+    }
+
+    /** igb_probe requires watchdog to be intialized*/
+    if(!initEventSources(provider)) {
+        pr_err("Failed to initEventSources()\n");
+        return false;
+    }
+
+    if(!igb_probe()) {
+        pr_err("Failed to igb_probe()\n");
+        return false;
+    }
 
 	// Close our provider, it will be re-opened on demand when
 	// our enable() is called by a client.
 	pdev->close(this);
 	
 	// Allocate and attach an IOEthernetInterface instance.
-	if (attachInterface((IONetworkInterface**)&netif, false) == false)
+    if (attachInterface((IONetworkInterface**)&netif, false) == false) {
+        pr_err("attachInterface() failed \n");
 		return false;
+    }
 
-	netif->registerService();
-	return true;
+    netif->registerService();
+
+    return true;
+
 }
 
 #ifdef HAVE_I2C_SUPPORT
@@ -9062,27 +9157,59 @@ static void igb_remove_i2c(struct igb_adapter *adapter)
 //---------------------------------------------------------------------------
 bool AppleIGB::initEventSources( IOService* provider )
 {
+    int msiIndex = -1;
+    int intrIndex = 0;
+    int intrType = 0;
+    bool result = false;
+
+    pr_debug("initEventSources() ===>\n");
+
 	// Get a handle to our superclass' workloop.
 	//
 	IOWorkLoop* myWorkLoop = getWorkLoop();
 	if (myWorkLoop == NULL) {
+        if (!createWorkLoop()) {
+            pr_err("No workloop and failed to create one\n");
+            return false;
+        }
+        myWorkLoop = getWorkLoop();
 		return false;
 	}
 
 	transmitQueue = getOutputQueue();
 	if (transmitQueue == NULL) {
+        pr_err("Unexpected transmitQueue\n");
 		return false;
 	}
-	transmitQueue->setCapacity(IGB_DEFAULT_TXD);
+    transmitQueue->retain();
 
-	interruptSource = IOInterruptEventSource::interruptEventSource(this,&AppleIGB::interruptHandler,provider);
+#ifdef MSIX_ENABLED
+    while (pdev->getInterruptType(intrIndex, &intrType) == kIOReturnSuccess) {
+        if (intrType & kIOInterruptTypePCIMessaged){
+            msiIndex = intrIndex;
+            break;
+        }
+        intrIndex++;
+    }
 
-	if (!interruptSource ||
-		(myWorkLoop->addEventSource(interruptSource) != kIOReturnSuccess)) {
-		return false;
-	}
+    if (msiIndex != -1) {
+        pr_err("MSI interrupt index: %d\n", msiIndex);
+        interruptSource = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &AppleIGB::interruptOccurred), provider, msiIndex);
+    }
+#endif
+
+    interruptSource = IOInterruptEventSource::interruptEventSource(this,&AppleIGB::interruptHandler,provider);
+    if (!interruptSource) {
+        pr_err("MSI interrupt could not be enabled.\n");
+        goto error1;
+    }
+    getWorkLoop()->addEventSource(interruptSource);
 
 	watchdogSource = IOTimerEventSource::timerEventSource(this, &AppleIGB::watchdogHandler );
+    if (!watchdogSource) {
+        pr_err("Failed to create IOTimerEventSource.\n");
+        goto error2;
+    }
 	getWorkLoop()->addEventSource(watchdogSource);
 
 	resetSource = IOTimerEventSource::timerEventSource(this, &AppleIGB::resetHandler );
@@ -9090,54 +9217,68 @@ bool AppleIGB::initEventSources( IOService* provider )
 
 	dmaErrSource = IOTimerEventSource::timerEventSource(this, &AppleIGB::resetHandler );
 	getWorkLoop()->addEventSource(dmaErrSource);
-	
-	// This is important. If the interrupt line is shared with other devices,
-	// then the interrupt vector will be enabled only if all corresponding
-	// interrupt event sources are enabled. To avoid masking interrupts for
-	// other devices that are sharing the interrupt line, the event source
-	// is enabled immediately.
-	interruptSource->enable();
-	resetSource->enable();
-	dmaErrSource->enable();
-	
-	
-	if (!publishMediumDictionary(mediumDict)) {
-		return false;
-	}
-	
+
+    pr_debug("initEventSources() <===\n");
 	return true;
+done:
+    return result;
+
+error2:
+    workLoop->removeEventSource(interruptSource);
+    RELEASE(interruptSource);
+
+error1:
+    pr_err("Error initializing event sources.\n");
+    transmitQueue->release();
+    transmitQueue = NULL;
+    goto done;
 }
 
 //---------------------------------------------------------------------------
 IOReturn AppleIGB::enable(IONetworkInterface * netif)
 {
+    const IONetworkMedium *selectedMedium;
+    struct e1000_hw *hw = &priv_adapter.hw;
+    int ret_val;
 	pr_err("enable() ===>\n");
 	if(!enabledForNetif){
 		pdev->open(this);
 
-        if (selectMedium(getSelectedMedium()) != kIOReturnSuccess) {
-            pr_err("Failed to select medium\n");
-            return kIOReturnIOError;
+        selectedMedium = getSelectedMedium();
+
+        if (!selectedMedium) {
+            pr_err("No medium selected. Falling back to autonegotiation.\n");
+            selectedMedium = mediumTable[MEDIUM_INDEX_AUTO];
+            setCurrentMedium(selectedMedium);
         }
-		
-        if(igb_open(this)) {
-            pr_err("igb_open failed \n");
+
+        setCarrier(false);
+
+        intelSetupAdvForMedium(selectedMedium);
+
+        ret_val = igb_open(this);
+        if (ret_val) {
+            pr_err("igb_open failed %d\n", ret_val);
             return kIOReturnIOError;
         }
 
-        if (!igb_has_link(&priv_adapter)) {
-            pr_err("Setting Active | Valid link status");
-            if (!setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive, getCurrentMedium())) {
-                pr_err("Failed to setLinkStatus\n");
-            }
-        }
-		
         // hack to accept any VLAN
         for(u16 k = 1; k < 4096; k++){
             igb_vlan_rx_add_vid(this,k);
         }
 
         interruptSource->enable();
+        setTimers(true);
+
+        if (!transmitQueue->setCapacity(IGB_DEFAULT_TXD)) {
+            pr_err("Failed to set tx queue capacity %u\n", IGB_DEFAULT_TXD);
+        }
+
+        if (!carrier()) {
+            setCarrier(true); // setValidLinkStatus(Active)
+        }
+
+        hw->mac.get_link_status = true;
 
 		enabledForNetif = true;
     } else {
@@ -9150,29 +9291,233 @@ IOReturn AppleIGB::enable(IONetworkInterface * netif)
 
 IOReturn AppleIGB::disable(IONetworkInterface * netif)
 {
-    u32 linkStatus = kIONetworkLinkValid;
-	pr_err("disable()\n");
+    pr_err("disable() ===>\n");
 
 	if(enabledForNetif){
 		enabledForNetif = false;
 
+        stopTxQueue();
+        transmitQueue->setCapacity(0);
+
+        watchdogSource->cancelTimeout();
         interruptSource->disable();
+        setTimers(false);
 
 		igb_close(this);
 
         igb_irq_disable(&priv_adapter);
 
-        setLinkStatus(linkStatus);
+        if (carrier()) {
+            setCarrier(false);
+            pr_debug("Link down on en%u\n", netif->getUnitNumber());
+        }
 
         if (pdev && pdev->isOpen())
             pdev->close(this);
     } else {
         pr_err("disable() on not enabled interface\n");
     }
+
+    pr_err("disable() <===\n");
 	return kIOReturnSuccess;
 }
 
+static const char *speed1GName = "1-Gigabit";
+static const char *speed100MName = "100-Megabit";
+static const char *speed10MName = "10-Megabit";
+static const char *duplexFullName = "Full-duplex";
+static const char *duplexHalfName = "Half-duplex";
 
+static const char *flowControlNames[kFlowControlTypeCount] = {
+    "No flow-control",
+    "Rx flow-control",
+    "Tx flow-control",
+    "Rx/Tx flow-control",
+};
+
+static const char* eeeNames[kEEETypeCount] = {
+    "",
+    ", energy-efficient-ethernet"
+};
+
+void AppleIGB::setLinkUp()
+{
+    struct e1000_hw *hw = &priv_adapter.hw;
+    struct e1000_phy_info *phy = &hw->phy;
+    struct igb_adapter *adapter = &priv_adapter;
+    const char *flowName;
+    const char *speedName;
+    const char *duplexName;
+    const char *eeeName;
+    UInt64 mediumSpeed;
+    UInt32 mediumIndex = MEDIUM_INDEX_AUTO;
+    UInt32 fcIndex;
+    UInt32 tctl, rctl, ctrl;
+    UInt32 rate;
+
+    pr_err("setLinkUp() ===>\n");
+
+    e1000_get_phy_info(hw);
+
+    e1000_check_downshift_generic(hw);
+    if (phy->speed_downgraded)
+        pr_debug("Link Speed was downgraded by SmartSpeed\n");
+
+    hw->mac.ops.get_link_up_info(hw, &adapter->link_speed, &adapter->link_duplex);
+
+    /* Get link speed, duplex and flow-control mode. */
+    ctrl = E1000_READ_REG(hw, E1000_CTRL) & (E1000_CTRL_RFCE | E1000_CTRL_TFCE);
+
+    switch (ctrl) {
+        case (E1000_CTRL_RFCE | E1000_CTRL_TFCE):
+            fcIndex = kFlowControlTypeRxTx;
+            break;
+        case E1000_CTRL_RFCE:
+            fcIndex = kFlowControlTypeRx;
+            break;
+        case E1000_CTRL_TFCE:
+            fcIndex = kFlowControlTypeTx;
+            break;
+        default:
+            fcIndex = kFlowControlTypeNone;
+            break;
+    }
+
+    flowName = flowControlNames[fcIndex];
+
+    if (priv_adapter.link_speed == SPEED_1000) {
+       mediumSpeed = kSpeed1000MBit;
+       speedName = speed1GName;
+       duplexName = duplexFullName;
+    } else if (priv_adapter.link_speed == SPEED_100) {
+       mediumSpeed = kSpeed100MBit;
+       speedName = speed100MName;
+
+       if (priv_adapter.link_duplex != DUPLEX_FULL) {
+           duplexName = duplexFullName;
+
+           if (fcIndex == kFlowControlTypeNone) {
+               mediumIndex = MEDIUM_INDEX_100FD;
+           } else {
+               mediumIndex = MEDIUM_INDEX_100FDFC;
+           }
+       } else {
+                mediumIndex = MEDIUM_INDEX_100HD;
+                duplexName = duplexHalfName;
+       }
+   } else {
+       mediumSpeed = kSpeed10MBit;
+       speedName = speed10MName;
+
+       if (priv_adapter.link_duplex != DUPLEX_FULL) {
+           mediumIndex = MEDIUM_INDEX_10FD;
+           duplexName = duplexFullName;
+       } else {
+           mediumIndex = MEDIUM_INDEX_10HD;
+           duplexName = duplexHalfName;
+       }
+   }
+
+    /* adjust timeout factor according to speed/duplex */
+    adapter->tx_timeout_factor = 1;
+    switch (adapter->link_speed) {
+    case SPEED_10:
+        adapter->tx_timeout_factor = 14;
+        break;
+    case SPEED_100:
+        /* maybe add some timeout factor ? */
+        break;
+    default:
+        break;
+    }
+
+    while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+        usleep_range(1000, 2000);
+
+    if (!carrier())
+        setCarrier(true);
+
+    igb_up(adapter);
+
+    clear_bit(__IGB_RESETTING, &adapter->state);
+
+    linkUp = true;
+
+    interruptSource->enable();
+    setTimers(true);
+
+    pr_debug("[IGB]: Link to up on en%u, %s, %s, %s\n", netif->getUnitNumber(), speedName, duplexName, flowName);
+
+    pr_debug("[IGB]: CTRL=0x%08x\n", E1000_READ_REG(hw, E1000_CTRL));
+    pr_debug("[IGB]: CTRL_EXT=0x%08x\n", E1000_READ_REG(hw, E1000_CTRL_EXT));
+    pr_debug("[IGB]: STATUS=0x%08x\n", E1000_READ_REG(hw, E1000_STATUS));
+    pr_debug("[IGB]: RCTL=0x%08x\n", E1000_READ_REG(hw, E1000_RCTL));
+    pr_debug("[IGB]: PSRCTL=0x%08x\n", E1000_READ_REG(hw, E1000_PSRCTL));
+    pr_debug("[IGB]: FCRTL=0x%08x\n", E1000_READ_REG(hw, E1000_FCRTL));
+    pr_debug("[IGB]: FCRTH=0x%08x\n", E1000_READ_REG(hw, E1000_FCRTH));
+    pr_debug("[IGB]: RDLEN(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RDLEN(0)));
+    pr_debug("[IGB]: RDTR=0x%08x\n", E1000_READ_REG(hw, E1000_RDTR));
+    pr_debug("[IGB]: RADV=0x%08x\n", E1000_READ_REG(hw, E1000_RADV));
+    pr_debug("[IGB]: RXCSUM=0x%08x\n", E1000_READ_REG(hw, E1000_RXCSUM));
+    pr_debug("[IGB]: RFCTL=0x%08x\n", E1000_READ_REG(hw, E1000_RFCTL));
+    pr_debug("[IGB]: RXDCTL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RXDCTL(0)));
+    pr_debug("[IGB]: RAL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RAL(0)));
+    pr_debug("[IGB]: RAH(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RAH(0)));
+    pr_debug("[IGB]: MRQC=0x%08x\n", E1000_READ_REG(hw, E1000_MRQC));
+    pr_debug("[IGB]: TARC(0)=0x%08x\n", E1000_READ_REG(hw, E1000_TARC(0)));
+    pr_debug("[IGB]: TARC(1)=0x%08x\n", E1000_READ_REG(hw, E1000_TARC(1)));
+    pr_debug("[IGB]: TCTL=0x%08x\n", E1000_READ_REG(hw, E1000_TCTL));
+    pr_debug("[IGB]: TXDCTL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_TXDCTL(0)));
+    pr_debug("[IGB]: TXDCTL(1)=0x%08x\n", E1000_READ_REG(hw, E1000_TXDCTL(1)));
+
+    pr_err("setLinkUp() <===\n");
+}
+
+void AppleIGB::systemWillShutdown(IOOptionBits specifier)
+{
+    pr_debug("systemWillShutdown() ===>\n");
+
+    if ((kIOMessageSystemWillPowerOff | kIOMessageSystemWillRestart) & specifier) {
+        disable(netif);
+
+        /* Restore the original MAC address. */
+        priv_adapter.hw.mac.ops.rar_set(&priv_adapter.hw, priv_adapter.hw.mac.perm_addr, 0);
+
+                /*
+                 * Let the firmware know that the network interface is now closed
+                 */
+        igb_release_hw_control(&priv_adapter);
+    }
+
+    pr_debug("systemWillShutdown() <===\n");
+
+    /* Must call super on shutdown or system will stall. */
+    super::systemWillShutdown(specifier);
+}
+
+/** This method doesn't completely shutdown NIC. It intentionally keeps eventSources
+ * and enables interruptes back
+ */
+void AppleIGB::setLinkDown()
+{
+        struct e1000_hw *hw = &priv_adapter.hw;
+        struct igb_adapter *adapter = &priv_adapter;
+
+        pr_err("setLinkDown() ===>\n");
+
+        linkUp = false;
+        /** igb_down also performs setLinkStatus(Valid) via netif_carrier_off */
+        igb_down(adapter);
+
+        clear_bit(__IGB_DOWN, &adapter->state);
+
+        /* Clear any pending interrupts. */
+        E1000_READ_REG(hw, E1000_ICR);
+        igb_irq_enable(adapter);
+
+        pr_err("Link down on en%u\n", netif->getUnitNumber());
+        pr_err("setLinkDown() <===\n");
+    }
 
 // corresponds to igb_xmit_frame
 UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
@@ -9185,7 +9530,6 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
 		freePacket(skb);
 		return kIOReturnOutputSuccess;
 	}
-
 
 	/*
 	 * The minimum packet size with TCTL.PSP set is 17 so pad the skb
@@ -9330,103 +9674,189 @@ const OSString * AppleIGB::newModelString() const
 	return OSString::withCString("Unknown");
 }
 
-#define ADVERTISED_100baseT_Full        (1 << 3)
-#define ADVERTISED_1000baseT_Full       (1 << 5)
-#define ADVERTISED_Autoneg              (1 << 6)
-#define ADVERTISED_TP                   (1 << 7)
-#define ADVERTISED_FIBRE                (1 << 10)
-#define ADVERTISED_2500baseX_Full       (1 << 15)
+#define ADVERTISED_10baseT_Half        (1 << 0)
+#define ADVERTISED_10baseT_Full        (1 << 1)
+#define ADVERTISED_100baseT_Half    (1 << 2)
+#define ADVERTISED_100baseT_Full    (1 << 3)
+#define ADVERTISED_1000baseT_Half    (1 << 4)
+#define ADVERTISED_1000baseT_Full    (1 << 5)
+#define ADVERTISED_Autoneg        (1 << 6)
+#define ADVERTISED_TP            (1 << 7)
+#define ADVERTISED_AUI            (1 << 8)
+#define ADVERTISED_MII            (1 << 9)
+#define ADVERTISED_FIBRE        (1 << 10)
+#define ADVERTISED_BNC            (1 << 11)
+#define ADVERTISED_10000baseT_Full    (1 << 12)
+#define ADVERTISED_Pause        (1 << 13)
+#define ADVERTISED_Asym_Pause        (1 << 14)
+#define ADVERTISED_2500baseX_Full    (1 << 15)
+#define ADVERTISED_Backplane        (1 << 16)
+#define ADVERTISED_1000baseKX_Full    (1 << 17)
+
+/**
+* intelSetupAdvForMedium @IntelMausi
+*/
+void AppleIGB::intelSetupAdvForMedium(const IONetworkMedium *medium)
+{
+        igb_adapter *adapter = &priv_adapter;
+        struct e1000_hw *hw = &adapter->hw;
+        struct e1000_mac_info *mac = &hw->mac;
+        IOMediumType type = medium->getType();
+        s32 ret_val;
+
+        pr_debug("intelSetupAdvForMedium(index %u, type %u) ===>\n", medium->getIndex(), type);
+
+        /* SerDes device's does not support 10Mbps Full/duplex
+         * and 100Mbps Half duplex
+         * @see igb_set_spd_dplx
+         */
+        if (type != kIOMediumEthernetAuto
+            && hw->phy.media_type == e1000_media_type_internal_serdes) {
+                switch (type) {
+                    case kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex:
+                    case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex:
+                    case kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex:
+                        pr_err("Unsupported Speed/Duplex configuration\n");
+                        /** @todo we probably shouldn't add these options to the dict */
+                        return;
+                    default:
+                        break;
+            }
+        }
+
+        hw->mac.autoneg = 0;
+
+        switch (medium->getIndex()) {
+            case MEDIUM_INDEX_10HD:
+                mac->forced_speed_duplex = ADVERTISE_10_HALF;
+                break;
+
+            case MEDIUM_INDEX_10FD:
+                mac->forced_speed_duplex = ADVERTISE_10_FULL;
+                break;
+
+            case MEDIUM_INDEX_100HD:
+                hw->mac.forced_speed_duplex = ADVERTISE_100_HALF;
+                hw->fc.requested_mode = e1000_fc_none;
+                break;
+
+            case MEDIUM_INDEX_100FD:
+                hw->mac.forced_speed_duplex = ADVERTISE_100_FULL;
+                hw->fc.requested_mode = e1000_fc_none;
+                break;
+
+            case MEDIUM_INDEX_100FDFC:
+                hw->mac.forced_speed_duplex = ADVERTISE_100_FULL;
+                hw->fc.requested_mode = e1000_fc_full;
+                break;
+
+            case MEDIUM_INDEX_1000FD:
+                hw->phy.autoneg_advertised = ADVERTISE_1000_FULL;
+                hw->mac.autoneg = 1;
+                hw->fc.requested_mode = e1000_fc_none;
+                break;
+
+            case MEDIUM_INDEX_1000FDFC:
+                hw->phy.autoneg_advertised = ADVERTISE_1000_FULL;
+                hw->mac.autoneg = 1;
+                hw->fc.requested_mode = e1000_fc_full;
+                break;
+
+            default:
+                if (hw->phy.media_type == e1000_media_type_fiber) {
+                    /** @see igb_set_link_ksettings **/
+                    hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full
+                        | ADVERTISED_FIBRE | ADVERTISED_Autoneg;
+                    switch (adapter->link_speed) {
+                        case SPEED_2500:
+                            hw->phy.autoneg_advertised = ADVERTISED_2500baseX_Full;
+                            break;
+                        case SPEED_1000:
+                            hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
+                            break;
+                        case SPEED_100:
+                            hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
+                            break;
+                        default:
+                            pr_err("Unexpected link_speed\n");
+                            break;
+                    }
+                } else {
+                    hw->phy.autoneg_advertised = E1000_ALL_SPEED_DUPLEX
+                        | ADVERTISED_TP | ADVERTISED_Autoneg;
+                }
+                if (adapter->fc_autoneg)
+                        hw->fc.requested_mode = e1000_fc_default;
+                hw->mac.autoneg = 1;
+                break;
+        }
+        /* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
+        hw->phy.mdix = AUTO_ALL_MODES;
+
+        pr_debug("intelSetupAdvForMedium() <===\n");
+}
+
+        /**
+         * intelRestart
+         *
+         * Reset the NIC in case a tx deadlock or a pci error occurred. timerSource and txQueue
+         * are stopped immediately but will be restarted by checkLinkStatus() when the link has
+         * been reestablished.
+         *
+         * From IntelMausi
+         */
+void AppleIGB::intelRestart() {
+        struct e1000_hw *hw = &priv_adapter.hw;
+        struct igb_adapter *adapter = &priv_adapter;
+
+        pr_debug("intelRestart ===> on en%u, linkUp=%u, carrier=%u\n",
+                 netif->getUnitNumber(), linkUp, carrier());
+
+        linkUp = false;
+
+        while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+            usleep_range(1000, 2000);
+
+        if (netif_running(this)) {
+            /**
+             * igb_down and igb_up do everything IntelMausi performs in its version:
+             *  - netif_carrier_off = setLinkStatus(valid)
+             *  - stop transmit queues
+             *  - disable IRQ
+             *  - reset HW
+             *  - configure
+             *  - enable IRQ
+             *  - start transmit queues
+             * So no obvious reason to avoid reusing as is.
+             */
+            pr_debug("igb_down...\n");
+            igb_down(adapter);
+            pr_debug("igb_up...\n");
+            igb_up(adapter);
+        } else {
+            pr_debug("igb_reset...\n");
+            igb_reset(adapter);
+        }
+
+        clear_bit(__IGB_RESETTING, &adapter->state);
+        pr_debug("intelRestart <===\n");
+}
+
 IOReturn AppleIGB::selectMedium(const IONetworkMedium * medium)
 {
-    if(medium == NULL)
-		medium = mediumTable[MEDIUM_INDEX_AUTO];
-    IOMediumType type = medium->getType();
+    pr_err("selectMedium()===>\n");
 
-	igb_adapter *adapter = &priv_adapter;
-	struct e1000_hw *hw = &adapter->hw;
-	
-    if(type == kIOMediumEthernetAuto){ /* auto negotation */
-		hw->mac.autoneg = 1;
-		if (hw->phy.media_type == e1000_media_type_fiber) {
-			hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full |
-			ADVERTISED_FIBRE |
-			ADVERTISED_Autoneg;
-			switch (adapter->link_speed) {
-				case SPEED_2500:
-					hw->phy.autoneg_advertised =
-					ADVERTISED_2500baseX_Full;
-					break;
-				case SPEED_1000:
-					hw->phy.autoneg_advertised =
-					ADVERTISED_1000baseT_Full;
-					break;
-				case SPEED_100:
-					hw->phy.autoneg_advertised =
-					ADVERTISED_100baseT_Full;
-					break;
-				default:
-					break;
-			}
-		} else {
-			hw->phy.autoneg_advertised = E1000_ALL_SPEED_DUPLEX |
-			ADVERTISED_TP |
-			ADVERTISED_Autoneg;
-		}
-	} else {
-		struct e1000_mac_info *mac = &adapter->hw.mac;
-		
-		mac->autoneg = 0;
-		
-		/*
-		 * SerDes device's only allow 2.5/1000 gbps Full duplex
-		 * and 100Mbps Full duplex for 100baseFx sfp
-		 */
-		if (hw->phy.media_type == e1000_media_type_internal_serdes) {
-			switch (type) {
-				case kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex:
-				case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex:
-				case kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex:
-					pr_err("Unsupported Speed/Duplex configuration\n");
-					return kIOReturnIOError;
-				default:
-					break;
-			}
-		}
-		
-		switch (type) {
-			case kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex:
-				mac->forced_speed_duplex = ADVERTISE_10_HALF;
-				break;
-			case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex:
-				mac->forced_speed_duplex = ADVERTISE_10_FULL;
-				break;
-			case kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex:
-				mac->forced_speed_duplex = ADVERTISE_100_HALF;
-				break;
-			case kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex:
-				mac->forced_speed_duplex = ADVERTISE_100_FULL;
-				break;
-			case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex:
-				mac->autoneg = 1;
-				hw->phy.autoneg_advertised = ADVERTISE_1000_FULL;
-				break;
-			default:
-				pr_err( "Unsupported Speed/Duplex configuration\n");
-				return kIOReturnIOError;
-		}
-		
-		/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
-		hw->phy.mdix = AUTO_ALL_MODES;
-	}
-	/* reset the link */
-	if (running()){
-		igb_down(adapter);
-		igb_up(adapter);
-	}
-	else
-		igb_reset(adapter);
-    
-    setCurrentMedium(medium);
+    if (medium) {
+        intelSetupAdvForMedium(medium);
+        setCurrentMedium(medium);
+
+        igb_update_stats(&priv_adapter);
+
+        intelRestart();
+    } else {
+        pr_err("Unexpected medium, ignoring.\n");
+    }
+    pr_err("<===selectMedium()\n");
 	return kIOReturnSuccess;
 }
 
@@ -9460,13 +9890,23 @@ bool AppleIGB::configureInterface(IONetworkInterface * interface)
 
 bool AppleIGB::createWorkLoop()
 {
-	workLoop = IOWorkLoop::workLoop();	
-	return (workLoop !=  NULL);
+    if ((vm_address_t) workLoop >> 1)
+     return true;
+
+    if (OSCompareAndSwap(0, 1, (UInt32 *) &workLoop)) {
+        // Construct the workloop and set the cntrlSync variable
+        // to whatever the result is and return
+        workLoop = IOWorkLoop::workLoop();
+    } else while ((IOWorkLoop *) workLoop == (IOWorkLoop *) 1)
+        // Spin around the cntrlSync variable until the
+        // initialization finishes.
+        thread_block(0);
+    return workLoop != NULL;
 }
 
 IOWorkLoop * AppleIGB::getWorkLoop() const
 {
-	return workLoop;
+   return workLoop;
 }
 
 //-----------------------------------------------------------------------
@@ -9584,6 +10024,137 @@ bool AppleIGB::addNetworkMedium(UInt32 type, UInt32 bps, UInt32 index)
 	return true;
 }
 
+/**
+* intelCheckLink
+* It's not exact copy of igb_has_link, additional check for E1000_STATUS_LU (Link up)
+* is performed
+* Reference: igb_has_link
+*/
+bool AppleIGB::intelCheckLink(struct igb_adapter *adapter)
+{
+    struct e1000_hw *hw = &adapter->hw;
+    bool link_active = FALSE;
+    s32 ret_val = 0, status;
+
+    /* get_link_status is set on LSC (link status) interrupt or
+     * rx sequence error interrupt.  get_link_status will stay
+     * false until the e1000_check_for_link establishes link
+     * for copper adapters ONLY
+     */
+    switch (hw->phy.media_type) {
+    case e1000_media_type_copper:
+        if (!hw->mac.get_link_status)
+            return true;
+        /* Fall through */
+    case e1000_media_type_internal_serdes:
+        /** on I211 this effectively calls e1000_check_for_copper_link_generic() */
+        ret_val = e1000_check_for_link(hw);
+        link_active = !hw->mac.get_link_status;
+        if (!link_active) {
+            /**It seems MII_SR_LINK_STATUS register might not be set
+             * if setLinkStatus(Active) hasn't been called before.
+             * So checking E1000_STATUS_LU (Link Up) additionally (per IntelMausi).
+             */
+            status = E1000_READ_REG(hw, E1000_STATUS);
+            link_active = !!(status & E1000_STATUS_LU);
+            pr_debug("E1000_STATUS_LU=%u (0x%08x)\n", link_active, status);
+        }
+        break;
+    case e1000_media_type_unknown:
+    default:
+        pr_debug("Unknown media type\n");
+        break;
+    }
+
+    if (((hw->mac.type == e1000_i210) ||
+         (hw->mac.type == e1000_i211)) &&
+         (hw->phy.id == I210_I_PHY_ID)) {
+        if (!netif_carrier_ok(adapter->netdev)) {
+            adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
+        } else if (!(adapter->flags & IGB_FLAG_NEED_LINK_UPDATE)) {
+            adapter->flags |= IGB_FLAG_NEED_LINK_UPDATE;
+            adapter->link_check_timeout = jiffies;
+        }
+    }
+
+    return link_active;
+}
+
+/**
+  this is called by interrupt
+    @see igb_watchdog_task
+ */
+void AppleIGB::checkLinkStatus()
+{
+    struct igb_adapter *adapter = &priv_adapter;
+    struct e1000_hw *hw = &priv_adapter.hw;
+    u32 thstat, ctrl_ext, link;
+    int i;
+    u32 connsw;
+
+    hw->mac.get_link_status = true;
+
+    /* Now check the link state. */
+    link = intelCheckLink(adapter);
+
+    pr_debug("checkLinkStatus() ===> link=%u, carrier=%u, linkUp=%u\n",
+             link, carrier(), linkUp);
+
+    /* Force link down if we have fiber to swap to */
+    if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
+        if (hw->phy.media_type == e1000_media_type_copper) {
+            connsw = E1000_READ_REG(hw, E1000_CONNSW);
+            if (!(connsw & E1000_CONNSW_AUTOSENSE_EN)) {
+                pr_debug("Force link down if we have fiber to swap to\n");
+                link = 0;
+            }
+
+        }
+    }
+    if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE) {
+        if (time_after(jiffies, (adapter->link_check_timeout + HZ)))
+            adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
+        else {
+            pr_debug("Force link down due to IGB_FLAG_NEED_LINK_UPDATE\n");
+            link = FALSE;
+        }
+    }
+
+    if (link) {
+        /* Perform a reset if the media type changed. */
+        if (hw->dev_spec._82575.media_changed) {
+            hw->dev_spec._82575.media_changed = false;
+            adapter->flags |= IGB_FLAG_MEDIA_RESET;
+            pr_debug("Perform a reset if the media type changed.\n");
+            igb_reset(adapter);
+        }
+    }
+
+    if (linkUp)
+    {
+        if (link) {
+            /* The link partner must have changed some setting. Initiate renegotiation
+             * of the link parameters to make sure that the MAC is programmed correctly.
+             */
+            watchdogSource->cancelTimeout();
+            igb_update_stats(&priv_adapter);
+            intelRestart();
+        } else {
+            /* Stop watchdog and statistics updates. */
+            watchdogSource->cancelTimeout();
+            setLinkDown();
+        }
+    } else {
+        if (link) {
+            /* Start rx/tx and inform upper layers that the link is up now. */
+            setLinkUp();
+            /* Perform live checks periodically. */
+            watchdogSource->setTimeoutMS(1000);
+       }
+    }
+    pr_debug("checkLinkStatus() <===\n");
+}
+
 // corresponds to igb-intr
 void AppleIGB::interruptOccurred(IOInterruptEventSource * src, int count)
 {
@@ -9591,15 +10162,15 @@ void AppleIGB::interruptOccurred(IOInterruptEventSource * src, int count)
 	struct igb_q_vector *q_vector = adapter->q_vector[0];
 	struct e1000_hw *hw = &adapter->hw;
 
-    if(!enabledForNetif)
-        return;
-	if(test_bit(__IGB_DOWN, &adapter->state))
-        return;
-	
     /* Interrupt Auto-Mask...upon reading ICR, interrupts are masked.  No
-	 * need for the IMC write */
-	u32 icr = E1000_READ_REG(hw, E1000_ICR);
-	
+         * need for the IMC write */
+    u32 icr = E1000_READ_REG(hw, E1000_ICR);
+
+    if(!enabledForNetif) {
+        pr_debug("Interrupt 0x%08x on disabled device\n", icr);
+        return;
+    }
+
 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
 	 * not set, then the adapter didn't send an interrupt */
 	if (!(icr & E1000_ICR_INT_ASSERTED))
@@ -9607,19 +10178,21 @@ void AppleIGB::interruptOccurred(IOInterruptEventSource * src, int count)
 	
 	igb_write_itr(q_vector);
 	
-	if (icr & E1000_ICR_DRSTA)
-		igb_reinit_locked(adapter);
-	
+    if (icr & E1000_ICR_DRSTA) {
+        resetSource->setTimeoutMS(1);
+    }
+
 	if (icr & E1000_ICR_DOUTSYNC) {
 		/* HW is reporting DMA is out of sync */
 		adapter->stats.doosync++;
 	}
 	
 	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
-		hw->mac.get_link_status = 1;
-		/* guard against interrupt when we're going down */
-		if (!test_bit(__IGB_DOWN, &adapter->state))
-			watchdogSource->setTimeoutMS(1);
+        checkLinkStatus();
+//
+//		/* guard against interrupt when we're going down */
+//		if (!test_bit(__IGB_DOWN, &adapter->state))
+//			watchdogSource->setTimeoutMS(1);
 	}
 	
 	igb_poll(q_vector, 64);
@@ -9641,205 +10214,45 @@ void AppleIGB::watchdogTask()
 	int i;
 	u32 connsw;
 
-	link = igb_has_link(adapter);
-
-	/* Force link down if we have fiber to swap to */
-	if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
-		if (hw->phy.media_type == e1000_media_type_copper) {
-			connsw = E1000_READ_REG(hw, E1000_CONNSW);
-			if (!(connsw & E1000_CONNSW_AUTOSENSE_EN))
-				link = 0;
-		}
-	}
-	if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE) {
-		if (time_after(jiffies, (adapter->link_check_timeout + HZ)))
-			adapter->flags &= ~IGB_FLAG_NEED_LINK_UPDATE;
-		else
-			link = FALSE;
-	}
-
-	if (link) {
-		/* Perform a reset if the media type changed. */
-		if (hw->dev_spec._82575.media_changed) {
-			hw->dev_spec._82575.media_changed = false;
-			adapter->flags |= IGB_FLAG_MEDIA_RESET;
-			igb_reset(adapter);
-		}
-		
-		/* Cancel scheduled suspend requests. */
-//		pm_runtime_resume(netdev->dev.parent);
-		
-		if (!netif_carrier_ok(this)) {
-			u32 ctrl;
-			e1000_get_speed_and_duplex(hw,
-			                           &adapter->link_speed,
-			                           &adapter->link_duplex);
-			
-			ctrl = E1000_READ_REG(hw, E1000_CTRL);
-			/* Links status message must follow this format */
-			pr_err("igb: Link is Up %d Mbps %s, "
-				   "Flow Control: %s\n",
-			       adapter->link_speed,
-			       adapter->link_duplex == FULL_DUPLEX ?
-				   "Full Duplex" : "Half Duplex",
-			       ((ctrl & E1000_CTRL_TFCE) &&
-			        (ctrl & E1000_CTRL_RFCE)) ? "RX/TX":
-			       ((ctrl & E1000_CTRL_RFCE) ?  "RX" :
-					((ctrl & E1000_CTRL_TFCE) ?  "TX" : "None")));
-			/* adjust timeout factor according to speed/duplex */
-			adapter->tx_timeout_factor = 1;
-			switch (adapter->link_speed) {
-				case SPEED_10:
-					adapter->tx_timeout_factor = 14;
-					break;
-				case SPEED_100:
-					/* maybe add some timeout factor ? */
-					break;
-				default:
-					break;
-			}
-			
-			netif_carrier_on(this);
-			netif_tx_wake_all_queues(this);
-			
-			igb_ping_all_vfs(adapter);
-#ifdef IFLA_VF_MAX
-			igb_check_vf_rate_limit(adapter);
-#endif /* IFLA_VF_MAX */
-			
-			/* link state has changed, schedule phy info update */
-			if (!test_bit(__IGB_DOWN, &adapter->state))
-				updatePhyInfoTask();
-		}
-#if CAN_RECOVER_STALL
-		if(queueStopped()){
-			pr_err("watchdogTask: queue is stopped.\n");
-			if(!igb_maybe_stop_tx(tx_ring,MAX_SKB_FRAGS + 4)){
-				pr_err("Restart TxQueue.\n");
-				startTxQueue();
-			}
-		}
-#endif
-	} else {
-		if (netif_carrier_ok(this)) {
-			adapter->link_speed = 0;
-			adapter->link_duplex = 0;
-			/* check for thermal sensor event on i350 */
-			if (hw->mac.type == e1000_i350) {
-				thstat = E1000_READ_REG(hw, E1000_THSTAT);
-				ctrl_ext = E1000_READ_REG(hw, E1000_CTRL_EXT);
-				if ((hw->phy.media_type ==
-					 e1000_media_type_copper) &&
-					!(ctrl_ext &
-					  E1000_CTRL_EXT_LINK_MODE_SGMII)) {
-						if (thstat & E1000_THSTAT_PWR_DOWN) {
-							pr_err("igb: The "
-								   "network adapter was stopped because it overheated.\n");
-						}
-						if (thstat & E1000_THSTAT_LINK_THROTTLE) {
-							pr_err("igb: The network adapter supported link speed was downshifted because it overheated.\n" );
-						}
-					}
-			}
-			
-			/* Links status message must follow this format */
-			pr_err("igb: NIC Link is Down\n");
-			netif_carrier_off(this);
-			netif_tx_stop_all_queues(this);
-			
-			igb_ping_all_vfs(adapter);
-			
-			/* link state has changed, schedule phy info update */
-			if (!test_bit(__IGB_DOWN, &adapter->state))
-				updatePhyInfoTask();
-			/* link is down, time to check for alternate media */
-			if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
-				igb_check_swap_media(adapter);
-				if (adapter->flags & IGB_FLAG_MEDIA_RESET) {
-					resetSource->setTimeoutMS(1);
-					/* return immediately */
-					return;
-				}
-			}
-			
-			/* also check for alternate media here */
-		} else if (!netif_carrier_ok(this) &&
-				   (adapter->flags & IGB_FLAG_MAS_ENABLE)) {
-			hw->mac.ops.power_up_serdes(hw);
-			igb_check_swap_media(adapter);
-			if (adapter->flags & IGB_FLAG_MEDIA_RESET) {
-				resetSource->setTimeoutMS(1);
-				/* return immediately */
-				return;
-			}
-		}
-	}
-	
 	igb_update_stats(adapter);
-	
-	for (i = 0; i < adapter->num_tx_queues; i++) {
-		struct igb_ring *tx_ring = adapter->tx_ring[i];
 
-		if (!netif_carrier_ok(this)) {
-			/* We've lost link, so the controller stops DMA,
-			 * but we've got queued Tx work that's never going
-			 * to get done, so reset controller to flush Tx.
-			 * (Do the reset outside of interrupt context).
-			 */
-			if (igb_desc_unused(tx_ring) + 1 < tx_ring->count) {
-				adapter->tx_timeout_count++;
-				schedule_work(&adapter->reset_task);
-				/* return immediately since reset is imminent */
-				return;
-			}
-		}
-		
-		/* Force detection of hung controller every watchdog period */
-		set_bit(IGB_RING_FLAG_TX_DETECT_HANG, &tx_ring->flags);
-	}
-	
-	/* Cause software interrupt to ensure rx ring is cleaned */
-	if (adapter->msix_entries) {
-		u32 eics = 0;
-
-		for (i = 0; i < adapter->num_q_vectors; i++)
-			eics |= adapter->q_vector[i]->eims_value;
-		E1000_WRITE_REG(hw, E1000_EICS, eics);
-	} else {
-		E1000_WRITE_REG(hw, E1000_ICS, E1000_ICS_RXDMT0);
-	}
-	
-	igb_spoof_check(adapter);
-	
 	/* Reset the timer */
 	if (!test_bit(__IGB_DOWN, &adapter->state)){
-		if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE)
-			watchdogSource->setTimeoutMS(100);
-		else
-			watchdogSource->setTimeoutMS(200);
+        if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE) {
+            pr_debug("watchdogTask(): adapter has IGB_FLAG_NEED_LINK_UPDATE, forcing restart.\n");
+            intelRestart();
+        }
 	}
+
+    watchdogSource->setTimeoutMS(200);
 }
 
 // corresponds to igb_update_phy_info
 void AppleIGB::updatePhyInfoTask()
 {
+    struct e1000_hw *hw = &priv_adapter.hw;
+
+    e1000_get_phy_info(hw);
 }
 	
 void AppleIGB::watchdogHandler(OSObject * target, IOTimerEventSource * src)
 {
 	AppleIGB* me = (AppleIGB*) target;
 	me->watchdogTask();
-	me->watchdogSource->setTimeoutMS(200);
+	me->watchdogSource->setTimeoutMS(1000);
 }
 	
 void AppleIGB::resetHandler(OSObject * target, IOTimerEventSource * src)
 {
 	AppleIGB* me = (AppleIGB*) target;
-	
-	if(src == me->resetSource)
+    if(src == me->resetSource) {
+        pr_debug("resetHandler: resetSource\n");
 		igb_reinit_locked(&me->priv_adapter);
-	else if(src == me->dmaErrSource)
+    }
+    else if(src == me->dmaErrSource) {
+        pr_debug("resetHandler: dmaErrSource\n");
 		igb_dma_err_task(&me->priv_adapter,src);
+    }
 }
 
 
@@ -9949,7 +10362,7 @@ UInt32 AppleIGB::getFeatures() const {
 
 void AppleIGB::startTxQueue()
 {
-	pr_debug("AppleIGB::startTxQueue()");
+	pr_debug("AppleIGB::startTxQueue()\n");
 	txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN, MAX_SKB_FRAGS);
 	if(txMbufCursor && transmitQueue)
 		transmitQueue->start();
@@ -9957,7 +10370,7 @@ void AppleIGB::startTxQueue()
 
 void AppleIGB::stopTxQueue()
 {
-    pr_debug("AppleIGB::stopTxQueue()");
+    pr_debug("AppleIGB::stopTxQueue()\n");
 	transmitQueue->stop();
 	transmitQueue->flush();
 	RELEASE(txMbufCursor);
@@ -9976,23 +10389,32 @@ bool AppleIGB::carrier()
 	
 void AppleIGB::setCarrier(bool stat)
 {
+    pr_debug("setCarrier(%d) ===>\n", stat);
 	if(stat){
 		preLinkStatus = kIONetworkLinkValid | kIONetworkLinkActive;
-		UInt64 speed = 1000 * MBit;
-		switch (priv_adapter.link_speed) {
-			case SPEED_10:
-				speed = 10 * MBit;
-				break;
-			case SPEED_100:
-				speed = 100 * MBit;
-				break;
-		}
-		setLinkStatus(preLinkStatus, getCurrentMedium(), speed);
+        /** @todo the device assumed to take the speed from the medium.
+         * no reason, I _guess_ to force it here especially with 100mb max */
+//		UInt64 speed = 1000 * MBit;
+//		switch (priv_adapter.link_speed) {
+//			case SPEED_10:
+//				speed = 10 * MBit;
+//				break;
+//			case SPEED_100:
+//				speed = 100 * MBit;
+//				break;
+//		}
+        if (!setLinkStatus(preLinkStatus, getCurrentMedium())) {
+            pr_err("setLinkStatus: Some properties were not updated successullly with current medium(%u)\n",
+                   preLinkStatus);
+        }
 	} else {
 		preLinkStatus = kIONetworkLinkValid;
-		setLinkStatus(preLinkStatus);
+        if (!setLinkStatus(preLinkStatus)) {
+            pr_err("setLinkStatus(kIONetworkLinkValid): Some properties were not updated\n");
+        }
 	}
-	
+
+    pr_debug("setCarrier() <===\n");
 }
 	
 void AppleIGB::receive(mbuf_t skb)

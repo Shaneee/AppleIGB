@@ -588,6 +588,7 @@ struct igb_adapter {
 	u8 port_num;
 
 	u8 __iomem *io_addr; /* for iounmap */
+    u8 __iomem *flash_addr;
 
 	/* Interrupt Throttle Rate */
 	u32 rx_itr_setting;

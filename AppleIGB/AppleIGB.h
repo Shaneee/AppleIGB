@@ -11,13 +11,36 @@ enum {
 
 enum
 {
-	MEDIUM_INDEX_AUTO = 0,
-	MEDIUM_INDEX_10HD,
-	MEDIUM_INDEX_10FD,
-	MEDIUM_INDEX_100HD,
-	MEDIUM_INDEX_100FD,
-	MEDIUM_INDEX_1000FD,
-	MEDIUM_INDEX_COUNT
+    MEDIUM_INDEX_AUTO = 0,
+    MEDIUM_INDEX_10HD,
+    MEDIUM_INDEX_10FD,
+    MEDIUM_INDEX_100HD,
+    MEDIUM_INDEX_100FD,
+    MEDIUM_INDEX_100FDFC,
+    MEDIUM_INDEX_1000FD,
+    MEDIUM_INDEX_1000FDFC,
+    MEDIUM_INDEX_COUNT
+};
+
+
+enum {
+    kSpeed1000MBit = 1000*MBit,
+    kSpeed100MBit = 100*MBit,
+    kSpeed10MBit = 10*MBit,
+};
+
+enum {
+    kFlowControlTypeNone = 0,
+    kFlowControlTypeRx = 1,
+    kFlowControlTypeTx = 2,
+    kFlowControlTypeRxTx = 3,
+    kFlowControlTypeCount
+};
+
+enum {
+    kEEETypeNo = 0,
+    kEEETypeYes = 1,
+    kEEETypeCount
 };
 
 enum 
@@ -44,12 +67,13 @@ public:
 	virtual void stop(IOService * provider);
 	virtual bool init(OSDictionary *properties);
 	virtual void free();
-	
+
 	// --------------------------------------------------
 	// Power Management Support
 	// --------------------------------------------------
 	virtual IOReturn registerWithPolicyMaker(IOService* policyMaker);
     virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService *policyMaker );
+    virtual void systemWillShutdown(IOOptionBits specifier);
 	
 	// --------------------------------------------------
 	// IONetworkController methods.
@@ -105,14 +129,17 @@ private:
 	IOEthernetInterface * netif;
 	IONetworkStats * netStats;
 	IOEthernetStats * etherStats;
-    
+
 	IOMemoryMap * csrPCIAddress;
 	
 	IOMbufNaturalMemoryCursor * txMbufCursor;
-	
+
 	bool enabledForNetif;
 	bool bSuspended;
 	bool useTSO;
+
+    bool linkUp;
+
 	UInt32 iff_flags;
 	UInt32 _features;
 	UInt32 preLinkStatus;
@@ -145,7 +172,16 @@ private:
 	
 	void watchdogTask();
 	void updatePhyInfoTask();
-	
+
+    void intelRestart();
+    bool intelCheckLink(struct igb_adapter *adapter);
+    void setLinkUp();
+    void setLinkDown();
+    void checkLinkStatus();
+
+    bool setupMediumDict();
+
+    void intelSetupAdvForMedium(const IONetworkMedium *medium);
 	bool addNetworkMedium(UInt32 type, UInt32 bps, UInt32 index);
 
 	bool initEventSources( IOService* provider );
