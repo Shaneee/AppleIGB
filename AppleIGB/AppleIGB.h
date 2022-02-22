@@ -19,6 +19,10 @@ enum
     MEDIUM_INDEX_100FDFC,
     MEDIUM_INDEX_1000FD,
     MEDIUM_INDEX_1000FDFC,
+    MEDIUM_INDEX_1000FDEEE,
+    MEDIUM_INDEX_1000FDFCEEE,
+    MEDIUM_INDEX_100FDEEE,
+    MEDIUM_INDEX_100FDFCEEE,
     MEDIUM_INDEX_COUNT
 };
 
@@ -42,14 +46,6 @@ enum {
     kEEETypeYes = 1,
     kEEETypeCount
 };
-
-enum 
-{
-	kActivationLevelNone = 0,  /* adapter shut off */
-	kActivationLevelKDP,       /* adapter partially up to support KDP */
-	kActivationLevelBSD        /* adapter fully up to support KDP and BSD */
-};
-
 
 #define super IOEthernetController
 
@@ -139,12 +135,18 @@ private:
 	bool useTSO;
 
     bool linkUp;
+    bool stalled;
+
+    UInt16 eeeMode;
 
 	UInt32 iff_flags;
 	UInt32 _features;
 	UInt32 preLinkStatus;
 	UInt32 powerState;
 	UInt32 _mtu;
+    SInt32 txNumFreeDesc;
+
+    UInt32 chip_idx;
 
 	struct igb_adapter priv_adapter;
 public:
@@ -179,6 +181,8 @@ private:
     void setLinkDown();
     void checkLinkStatus();
 
+
+    UInt16 intelSupportsEEE(struct igb_adapter *adapter);
     bool setupMediumDict();
 
     void intelSetupAdvForMedium(const IONetworkMedium *medium);

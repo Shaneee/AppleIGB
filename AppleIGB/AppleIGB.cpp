@@ -149,11 +149,13 @@ static int netif_carrier_ok(IOEthernetController* netdev)
 
 static void netif_wake_queue(IOEthernetController* netdev)
 {
+    pr_debug("netif_wake_queue().\n");
 	netif_tx_wake_all_queues(netdev);
 }
 
 static void netif_stop_queue(IOEthernetController* netdev)
 {
+    pr_debug("netif_stop_queue().\n");
 	netif_tx_stop_all_queues(netdev);
 }
 
@@ -5214,29 +5216,28 @@ void igb_update_stats(struct igb_adapter *adapter)
 	
 	/* Fill out the OS statistics structure */
 	//net_stats->multicast = adapter->stats.mprc;
-	net_stats->collisions = adapter->stats.colc;
+	net_stats->collisions = (u32)adapter->stats.colc;
 	
 	/* Rx Errors */
 	
 	/* RLEC on some newer hardware can be incorrect so build
 	 * our own version based on RUC and ROC
 	 */
-	net_stats->inputErrors = adapter->stats.rxerrc +
-	adapter->stats.crcerrs + adapter->stats.algnerrc +
-	adapter->stats.ruc + adapter->stats.roc +
-	adapter->stats.cexterr;
-	ether_stats->dot3StatsEntry.frameTooLongs = adapter->stats.roc;
-	ether_stats->dot3RxExtraEntry.frameTooShorts = adapter->stats.ruc;
-	ether_stats->dot3StatsEntry.fcsErrors = adapter->stats.crcerrs;
-	ether_stats->dot3StatsEntry.alignmentErrors = adapter->stats.algnerrc;
-	ether_stats->dot3StatsEntry.missedFrames = adapter->stats.mpc;
+	net_stats->inputErrors = (u32)(adapter->stats.rxerrc +
+        adapter->stats.crcerrs + adapter->stats.algnerrc +
+        adapter->stats.ruc + adapter->stats.roc +
+        adapter->stats.cexterr);
+	ether_stats->dot3StatsEntry.frameTooLongs = (u32)adapter->stats.roc;
+	ether_stats->dot3RxExtraEntry.frameTooShorts = (u32)adapter->stats.ruc;
+	ether_stats->dot3StatsEntry.fcsErrors = (u32)adapter->stats.crcerrs;
+	ether_stats->dot3StatsEntry.alignmentErrors = (u32)adapter->stats.algnerrc;
+	ether_stats->dot3StatsEntry.missedFrames = (u32)adapter->stats.mpc;
 	
 	/* Tx Errors */
-	net_stats->outputErrors = adapter->stats.ecol +
-	adapter->stats.latecol;
-	ether_stats->dot3StatsEntry.deferredTransmissions = adapter->stats.ecol;
-	ether_stats->dot3StatsEntry.lateCollisions = adapter->stats.latecol;
-	ether_stats->dot3StatsEntry.carrierSenseErrors = adapter->stats.tncrs;
+	net_stats->outputErrors = (u32)(adapter->stats.ecol + adapter->stats.latecol);
+	ether_stats->dot3StatsEntry.deferredTransmissions = (u32)adapter->stats.ecol;
+	ether_stats->dot3StatsEntry.lateCollisions = (u32)adapter->stats.latecol;
+	ether_stats->dot3StatsEntry.carrierSenseErrors = (u32)adapter->stats.tncrs;
 	
 	/* Tx Dropped needs to be maintained elsewhere */
 	
@@ -8419,7 +8420,11 @@ static IOMediumType mediumTypeArray[MEDIUM_INDEX_COUNT] = {
         (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex),
         (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl),
         (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex),
-        (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl)
+        (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl),
+        (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionEEE),
+        (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE),
+        (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionEEE),
+        (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE)
 };
 
 static UInt32 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
@@ -8431,6 +8436,52 @@ static UInt32 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
         100 * MBit,
         1000 * MBit,
         1000 * MBit,
+        1000 * MBit,
+        1000 * MBit,
+        100 * MBit,
+        100 * MBit
+};
+
+static const struct  {
+        UInt16 id;
+        const char* name;
+} deviceModelNames[] =
+{
+    { E1000_DEV_ID_I354_BACKPLANE_1GBPS, "i354" },
+    { E1000_DEV_ID_I354_SGMII, "i354 SGMII" },
+    { E1000_DEV_ID_I354_BACKPLANE_2_5GBPS, "i354 2.5G" },
+    { E1000_DEV_ID_I210_COPPER, "i210 Copper" },
+    { E1000_DEV_ID_I210_FIBER, "i210 Fiber" },
+    { E1000_DEV_ID_I210_SERDES, "i210 SerDes" },
+    { E1000_DEV_ID_I210_SGMII, "i210 SGMII" },
+    { E1000_DEV_ID_I210_COPPER_FLASHLESS, "i210 Copper" },
+    { E1000_DEV_ID_I210_SERDES_FLASHLESS, "i210 SerDes" },
+    { E1000_DEV_ID_I211_COPPER, "i211 Copper" },
+    { E1000_DEV_ID_I350_COPPER, "i350 Copper"},
+    { E1000_DEV_ID_I350_FIBER, "i350 Fiber"},
+    { E1000_DEV_ID_I350_SERDES, "i350 SerDes"},
+    { E1000_DEV_ID_I350_SGMII, "i350 SGMII"},
+    { E1000_DEV_ID_82580_COPPER, "82580 Copper"},
+    { E1000_DEV_ID_82580_FIBER, "82580 Fiber"},
+    { E1000_DEV_ID_82580_QUAD_FIBER, "82580 Quad Fiber"},
+    { E1000_DEV_ID_82580_SERDES, "82580 SerDes"},
+    { E1000_DEV_ID_82580_SGMII, "82580 SGMII"},
+    { E1000_DEV_ID_82580_COPPER_DUAL, "82580 Dual Copper"},
+    { E1000_DEV_ID_DH89XXCC_SGMII, "DH89XXCC SGMII"},
+    { E1000_DEV_ID_DH89XXCC_SERDES, "DH89XXCC SerDes"},
+    { E1000_DEV_ID_DH89XXCC_BACKPLANE, "DH89XXCC Backplane"},
+    { E1000_DEV_ID_DH89XXCC_SFP, "DH89XXCC SFP"},
+    { E1000_DEV_ID_82576, "82576"},
+    { E1000_DEV_ID_82576_NS, "82576 NS"},
+    { E1000_DEV_ID_82576_NS_SERDES, "82576 NS SerDes"},
+    { E1000_DEV_ID_82576_FIBER, "82576 Fiber"},
+    { E1000_DEV_ID_82576_SERDES, "82576 SerDes"},
+    { E1000_DEV_ID_82576_SERDES_QUAD, "82576 Quad SerDes"},
+    { E1000_DEV_ID_82576_QUAD_COPPER_ET2, "82576 Quad Copper ET2"},
+    { E1000_DEV_ID_82576_QUAD_COPPER, "82576 Quad Copper"},
+    { E1000_DEV_ID_82575EB_COPPER, "82575EB Copper"},
+    { E1000_DEV_ID_82575EB_FIBER_SERDES, "82575EB Fiber SerDes"},
+    { E1000_DEV_ID_82575GB_QUAD_COPPER, "82575 Quad Copper"},
 };
 
 OSDefineMetaClassAndStructors(AppleIGB, super);
@@ -8454,9 +8505,12 @@ bool AppleIGB::setupMediumDict()
 
         if (priv_adapter.hw.phy.media_type == e1000_media_type_fiber) {
             count = 1;
-        } else {
+        } else if (intelSupportsEEE(&priv_adapter)) {
             count = MEDIUM_INDEX_COUNT;
+        } else {
+            count = MEDIUM_INDEX_COUNT - 4;
         }
+
         mediumDict = OSDictionary::withCapacity(count + 1);
 
         if (mediumDict) {
@@ -8522,6 +8576,9 @@ bool AppleIGB::init(OSDictionary *properties)
 	bSuspended = FALSE;
 
     linkUp = FALSE;
+    stalled = FALSE;
+
+    eeeMode = 0;
 
 	_mtu = 1500;
 
@@ -9083,7 +9140,8 @@ int AppleIGB::getIntOption(const char *name, int defVal, int maxVal, int minVal 
 		
 bool AppleIGB::start(IOService* provider)
 {
-    bool result = false;
+    u32 i;
+
     #ifdef APPLE_OS_LOG
     igb_logger = os_log_create("com.amdosx.driver.AppleIGB", "Drivers");
     #endif
@@ -9108,11 +9166,6 @@ bool AppleIGB::start(IOService* provider)
 	useTSO = FALSE;
 #endif
 
-    if (!setupMediumDict()) {
-        pr_err("Failed to setupMediumDict\n");
-        return false;
-    }
-
     /** igb_probe requires watchdog to be intialized*/
     if(!initEventSources(provider)) {
         pr_err("Failed to initEventSources()\n");
@@ -9122,6 +9175,17 @@ bool AppleIGB::start(IOService* provider)
     if(!igb_probe()) {
         pr_err("Failed to igb_probe()\n");
         return false;
+    }
+
+    if (!setupMediumDict()) {
+        pr_err("Failed to setupMediumDict\n");
+        return false;
+    }
+
+    chip_idx = 0;
+    for( i = 0; i < sizeof(deviceModelNames)/sizeof(deviceModelNames[0]); i++){
+        if(priv_adapter.hw.device_id == deviceModelNames[i].id )
+            chip_idx = i;
     }
 
 	// Close our provider, it will be re-opened on demand when
@@ -9157,9 +9221,6 @@ static void igb_remove_i2c(struct igb_adapter *adapter)
 //---------------------------------------------------------------------------
 bool AppleIGB::initEventSources( IOService* provider )
 {
-    int msiIndex = -1;
-    int intrIndex = 0;
-    int intrType = 0;
     bool result = false;
 
     pr_debug("initEventSources() ===>\n");
@@ -9278,6 +9339,9 @@ IOReturn AppleIGB::enable(IONetworkInterface * netif)
             setCarrier(true); // setValidLinkStatus(Active)
         }
 
+        eeeMode = 0;
+        stalled = FALSE;
+
         hw->mac.get_link_status = true;
 
 		enabledForNetif = true;
@@ -9306,6 +9370,9 @@ IOReturn AppleIGB::disable(IONetworkInterface * netif)
 		igb_close(this);
 
         igb_irq_disable(&priv_adapter);
+
+        eeeMode = 0;
+        stalled = FALSE;
 
         if (carrier()) {
             setCarrier(false);
@@ -9352,10 +9419,12 @@ void AppleIGB::setLinkUp()
     UInt64 mediumSpeed;
     UInt32 mediumIndex = MEDIUM_INDEX_AUTO;
     UInt32 fcIndex;
-    UInt32 tctl, rctl, ctrl;
-    UInt32 rate;
+    UInt32 ctrl;
 
     pr_err("setLinkUp() ===>\n");
+
+    eeeMode = 0;
+    eeeName = eeeNames[kEEETypeNo];
 
     e1000_get_phy_info(hw);
 
@@ -9386,9 +9455,28 @@ void AppleIGB::setLinkUp()
     flowName = flowControlNames[fcIndex];
 
     if (priv_adapter.link_speed == SPEED_1000) {
-       mediumSpeed = kSpeed1000MBit;
-       speedName = speed1GName;
-       duplexName = duplexFullName;
+        mediumSpeed = kSpeed1000MBit;
+        speedName = speed1GName;
+        duplexName = duplexFullName;
+
+        eeeMode = intelSupportsEEE(adapter);
+
+        if (fcIndex == kFlowControlTypeNone) {
+            if (eeeMode) {
+                mediumIndex = MEDIUM_INDEX_1000FDEEE;
+                eeeName = eeeNames[kEEETypeYes];
+            } else {
+                mediumIndex = MEDIUM_INDEX_1000FD;
+            }
+        } else {
+            if (eeeMode) {
+                mediumIndex = MEDIUM_INDEX_1000FDFCEEE;
+                eeeName = eeeNames[kEEETypeYes];
+            } else {
+                mediumIndex = MEDIUM_INDEX_1000FDFC;
+            }
+        }
+
     } else if (priv_adapter.link_speed == SPEED_100) {
        mediumSpeed = kSpeed100MBit;
        speedName = speed100MName;
@@ -9396,10 +9484,22 @@ void AppleIGB::setLinkUp()
        if (priv_adapter.link_duplex != DUPLEX_FULL) {
            duplexName = duplexFullName;
 
+           eeeMode = intelSupportsEEE(adapter);
+
            if (fcIndex == kFlowControlTypeNone) {
-               mediumIndex = MEDIUM_INDEX_100FD;
+               if (eeeMode) {
+                   mediumIndex = MEDIUM_INDEX_100FDEEE;
+                   eeeName = eeeNames[kEEETypeYes];
+               } else {
+                   mediumIndex = MEDIUM_INDEX_100FD;
+               }
            } else {
-               mediumIndex = MEDIUM_INDEX_100FDFC;
+               if (eeeMode) {
+                   mediumIndex = MEDIUM_INDEX_100FDFCEEE;
+                   eeeName = eeeNames[kEEETypeYes];
+               } else {
+                   mediumIndex = MEDIUM_INDEX_100FDFC;
+               }
            }
        } else {
                 mediumIndex = MEDIUM_INDEX_100HD;
@@ -9443,32 +9543,41 @@ void AppleIGB::setLinkUp()
 
     linkUp = true;
 
+    if (stalled) {
+        transmitQueue->service();
+        stalled = false;
+        pr_debug("Restart stalled queue!\n");
+    }
+
     interruptSource->enable();
     setTimers(true);
 
-    pr_debug("[IGB]: Link to up on en%u, %s, %s, %s\n", netif->getUnitNumber(), speedName, duplexName, flowName);
+    pr_debug("[LU]: Link Up on en%u (%s), %s, %s, %s%s\n",
+             netif->getUnitNumber(), deviceModelNames[chip_idx].name,
+             speedName, duplexName, flowName, eeeName);
 
-    pr_debug("[IGB]: CTRL=0x%08x\n", E1000_READ_REG(hw, E1000_CTRL));
-    pr_debug("[IGB]: CTRL_EXT=0x%08x\n", E1000_READ_REG(hw, E1000_CTRL_EXT));
-    pr_debug("[IGB]: STATUS=0x%08x\n", E1000_READ_REG(hw, E1000_STATUS));
-    pr_debug("[IGB]: RCTL=0x%08x\n", E1000_READ_REG(hw, E1000_RCTL));
-    pr_debug("[IGB]: PSRCTL=0x%08x\n", E1000_READ_REG(hw, E1000_PSRCTL));
-    pr_debug("[IGB]: FCRTL=0x%08x\n", E1000_READ_REG(hw, E1000_FCRTL));
-    pr_debug("[IGB]: FCRTH=0x%08x\n", E1000_READ_REG(hw, E1000_FCRTH));
-    pr_debug("[IGB]: RDLEN(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RDLEN(0)));
-    pr_debug("[IGB]: RDTR=0x%08x\n", E1000_READ_REG(hw, E1000_RDTR));
-    pr_debug("[IGB]: RADV=0x%08x\n", E1000_READ_REG(hw, E1000_RADV));
-    pr_debug("[IGB]: RXCSUM=0x%08x\n", E1000_READ_REG(hw, E1000_RXCSUM));
-    pr_debug("[IGB]: RFCTL=0x%08x\n", E1000_READ_REG(hw, E1000_RFCTL));
-    pr_debug("[IGB]: RXDCTL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RXDCTL(0)));
-    pr_debug("[IGB]: RAL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RAL(0)));
-    pr_debug("[IGB]: RAH(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RAH(0)));
-    pr_debug("[IGB]: MRQC=0x%08x\n", E1000_READ_REG(hw, E1000_MRQC));
-    pr_debug("[IGB]: TARC(0)=0x%08x\n", E1000_READ_REG(hw, E1000_TARC(0)));
-    pr_debug("[IGB]: TARC(1)=0x%08x\n", E1000_READ_REG(hw, E1000_TARC(1)));
-    pr_debug("[IGB]: TCTL=0x%08x\n", E1000_READ_REG(hw, E1000_TCTL));
-    pr_debug("[IGB]: TXDCTL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_TXDCTL(0)));
-    pr_debug("[IGB]: TXDCTL(1)=0x%08x\n", E1000_READ_REG(hw, E1000_TXDCTL(1)));
+    pr_debug("[LU]: CTRL=0x%08x\n", E1000_READ_REG(hw, E1000_CTRL));
+    pr_debug("[LU]: CTRL_EXT=0x%08x\n", E1000_READ_REG(hw, E1000_CTRL_EXT));
+    pr_debug("[LU]: STATUS=0x%08x\n", E1000_READ_REG(hw, E1000_STATUS));
+    pr_debug("[LU]: RCTL=0x%08x\n", E1000_READ_REG(hw, E1000_RCTL));
+    pr_debug("[LU]: PSRCTL=0x%08x\n", E1000_READ_REG(hw, E1000_PSRCTL));
+    pr_debug("[LU]: FCRTL=0x%08x\n", E1000_READ_REG(hw, E1000_FCRTL));
+    pr_debug("[LU]: FCRTH=0x%08x\n", E1000_READ_REG(hw, E1000_FCRTH));
+    pr_debug("[LU]: RDLEN(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RDLEN(0)));
+    pr_debug("[LU]: RDTR=0x%08x\n", E1000_READ_REG(hw, E1000_RDTR));
+    pr_debug("[LU]: RADV=0x%08x\n", E1000_READ_REG(hw, E1000_RADV));
+    pr_debug("[LU]: RXCSUM=0x%08x\n", E1000_READ_REG(hw, E1000_RXCSUM));
+    pr_debug("[LU]: RFCTL=0x%08x\n", E1000_READ_REG(hw, E1000_RFCTL));
+    pr_debug("[LU]: RXDCTL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RXDCTL(0)));
+    pr_debug("[LU]: RAL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RAL(0)));
+    pr_debug("[LU]: RAH(0)=0x%08x\n", E1000_READ_REG(hw, E1000_RAH(0)));
+    pr_debug("[LU]: MRQC=0x%08x\n", E1000_READ_REG(hw, E1000_MRQC));
+    pr_debug("[LU]: TARC(0)=0x%08x\n", E1000_READ_REG(hw, E1000_TARC(0)));
+    pr_debug("[LU]: TARC(1)=0x%08x\n", E1000_READ_REG(hw, E1000_TARC(1)));
+    pr_debug("[LU]: TCTL=0x%08x\n", E1000_READ_REG(hw, E1000_TCTL));
+    pr_debug("[LU]: TXDCTL(0)=0x%08x\n", E1000_READ_REG(hw, E1000_TXDCTL(0)));
+    pr_debug("[LU]: TXDCTL(1)=0x%08x\n", E1000_READ_REG(hw, E1000_TXDCTL(1)));
+    pr_debug("[LU]: EEE Active %u\n", (E1000_READ_REG(hw, E1000_EEER) & E1000_EEER_EEE_NEG));
 
     pr_err("setLinkUp() <===\n");
 }
@@ -9523,12 +9632,12 @@ void AppleIGB::setLinkDown()
 UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
 {
 	struct igb_adapter *adapter = &priv_adapter;
-    UInt32 rc = kIOReturnOutputSuccess;
+    UInt32 result = kIOReturnOutputDropped;
 	
-	if (!enabledForNetif || !txMbufCursor || test_bit(__IGB_DOWN, &adapter->state)) {
-		// drop the packet.
-		freePacket(skb);
-		return kIOReturnOutputSuccess;
+	if (!(enabledForNetif && linkUp) || !txMbufCursor
+            || test_bit(__IGB_DOWN, &adapter->state)) {
+        pr_debug("output: Dropping packet on disabled device\n");
+        goto error;
 	}
 
 	/*
@@ -9548,17 +9657,27 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
          *       + 1 desc for skb->data,
          *       + 1 desc for context descriptor,
          * otherwise try next time */
-		if (igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 3)) {
+        txNumFreeDesc = igb_desc_unused(tx_ring);
+        if (txNumFreeDesc < MAX_SKB_FRAGS + 3) //igb_maybe_stop_tx
+        {
             /* this is a hard error */
-			//pr_err("igb_maybe_stop_tx() returns TRUE\n");
 			netStats->outputErrors += 1;
-			freePacket(skb);
-			break;
+#ifdef DEBUG
+            if (netStats->outputErrors % 100 == 0)
+                pr_debug("output: Dropping packets (%u), free\n", netStats->outputErrors);
+#endif
+            /* We should normally return kIOReturnOutputStall but a lot of other parts of code
+             * are not ready for this (kernel panic) further on mbuf_pkthdr_len
+             * so just error as in some other drivers hoping that upper layers will be able to
+             * handle this properly */
+//            result = kIOReturnOutputStall;
+//            stalled = true;
+            goto error;
         }
         /* record the location of the first descriptor for this packet */
         first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
         first->skb = skb;
-        first->bytecount = mbuf_pkthdr_len(skb);
+        first->bytecount = (u32)mbuf_pkthdr_len(skb);
         first->gso_segs = 1;
 
 #ifdef HAVE_PTP_1588_CLOCK
@@ -9596,14 +9715,23 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
 
         if(!igb_tx_map(tx_ring, first, hdr_len)){
 			netStats->outputErrors += 1;
-			freePacket(skb);
+            pr_debug("output: igb_tx_map failed (%u)\n", netStats->outputErrors);
+            goto error;
 		}
 
 		/* Make sure there is space in the ring for the next send. */
 		//igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
     } while(false);
 
-	return rc;
+    result = kIOReturnOutputSuccess;
+
+done:
+    //DebugLog("[IntelMausi]: outputPacket() <===\n");
+    return result;
+
+error:
+    freePacket(skb);
+    goto done;
 }
 
 void AppleIGB::getPacketBufferConstraints(IOPacketBufferConstraints * constraints) const
@@ -9625,52 +9753,9 @@ const OSString * AppleIGB::newVendorString() const
 
 const OSString * AppleIGB::newModelString() const
 {
-	static struct  {
-		UInt16 id;
-		const char* name;
-	} decieModelNames[] = 
-	{
-		{ E1000_DEV_ID_I354_BACKPLANE_1GBPS, "i354" },
-		{ E1000_DEV_ID_I354_SGMII, "i354 SGMII" },
-		{ E1000_DEV_ID_I354_BACKPLANE_2_5GBPS, "i354 2.5G" },
-		{ E1000_DEV_ID_I210_COPPER, "i210 Copper" },
-		{ E1000_DEV_ID_I210_FIBER, "i210 Fiber" },
-		{ E1000_DEV_ID_I210_SERDES, "i210 SerDes" },
-		{ E1000_DEV_ID_I210_SGMII, "i210 SGMII" },
-		{ E1000_DEV_ID_I210_COPPER_FLASHLESS, "i210 Copper" },
-		{ E1000_DEV_ID_I210_SERDES_FLASHLESS, "i210 SerDes" },
-		{ E1000_DEV_ID_I211_COPPER, "i211 Copper" },
-		{ E1000_DEV_ID_I350_COPPER, "i350 Copper"},
-		{ E1000_DEV_ID_I350_FIBER, "i350 Fiber"},
-		{ E1000_DEV_ID_I350_SERDES, "i350 SerDes"},
-		{ E1000_DEV_ID_I350_SGMII, "i350 SGMII"},
-		{ E1000_DEV_ID_82580_COPPER, "82580 Copper"},
-		{ E1000_DEV_ID_82580_FIBER, "82580 Fiber"},
-		{ E1000_DEV_ID_82580_QUAD_FIBER, "82580 Quad Fiber"},
-		{ E1000_DEV_ID_82580_SERDES, "82580 SerDes"},
-		{ E1000_DEV_ID_82580_SGMII, "82580 SGMII"},
-		{ E1000_DEV_ID_82580_COPPER_DUAL, "82580 Dual Copper"},
-		{ E1000_DEV_ID_DH89XXCC_SGMII, "DH89XXCC SGMII"},
-		{ E1000_DEV_ID_DH89XXCC_SERDES, "DH89XXCC SerDes"},
-		{ E1000_DEV_ID_DH89XXCC_BACKPLANE, "DH89XXCC Backplane"},
-		{ E1000_DEV_ID_DH89XXCC_SFP, "DH89XXCC SFP"},
-		{ E1000_DEV_ID_82576, "82576"},
-		{ E1000_DEV_ID_82576_NS, "82576 NS"},
-		{ E1000_DEV_ID_82576_NS_SERDES, "82576 NS SerDes"},
-		{ E1000_DEV_ID_82576_FIBER, "82576 Fiber"},
-		{ E1000_DEV_ID_82576_SERDES, "82576 SerDes"},
-		{ E1000_DEV_ID_82576_SERDES_QUAD, "82576 Quad SerDes"},
-		{ E1000_DEV_ID_82576_QUAD_COPPER_ET2, "82576 Quad Copper ET2"},
-		{ E1000_DEV_ID_82576_QUAD_COPPER, "82576 Quad Copper"},
-		{ E1000_DEV_ID_82575EB_COPPER, "82575EB Copper"},
-		{ E1000_DEV_ID_82575EB_FIBER_SERDES, "82575EB Fiber SerDes"},
-		{ E1000_DEV_ID_82575GB_QUAD_COPPER, "82575 Quad Copper"},
-	};
-	int k;
-	for( k = 0; k < sizeof(decieModelNames)/sizeof(decieModelNames[0]); k++){
-		if(priv_adapter.hw.device_id == decieModelNames[k].id )
-			return OSString::withCString(decieModelNames[k].name);
-	}
+    if (chip_idx)
+        return OSString::withCString(deviceModelNames[chip_idx].name);
+
 	return OSString::withCString("Unknown");
 }
 
@@ -9694,15 +9779,38 @@ const OSString * AppleIGB::newModelString() const
 #define ADVERTISED_1000baseKX_Full    (1 << 17)
 
 /**
+* intelSupportsEEE
+*/
+UInt16 AppleIGB::intelSupportsEEE(struct igb_adapter *adapter)
+{
+    struct e1000_hw *hw = &adapter->hw;
+    struct e1000_mac_info *mac = &hw->mac;
+
+    UInt16 result = 0;
+
+    if ((mac->type < e1000_i350) || (hw->phy.media_type != e1000_media_type_copper))
+        goto done;
+
+    if (hw->dev_spec._82575.eee_disable)
+        goto done;
+
+    result |= E1000_EEE_ADV_100_SUPPORTED | E1000_EEE_ADV_1000_SUPPORTED;
+
+    return result;
+
+done:
+    return result;
+}
+
+/**
 * intelSetupAdvForMedium @IntelMausi
 */
 void AppleIGB::intelSetupAdvForMedium(const IONetworkMedium *medium)
 {
-        igb_adapter *adapter = &priv_adapter;
+        struct igb_adapter *adapter = &priv_adapter;
         struct e1000_hw *hw = &adapter->hw;
         struct e1000_mac_info *mac = &hw->mac;
         IOMediumType type = medium->getType();
-        s32 ret_val;
 
         pr_debug("intelSetupAdvForMedium(index %u, type %u) ===>\n", medium->getIndex(), type);
 
@@ -9725,6 +9833,9 @@ void AppleIGB::intelSetupAdvForMedium(const IONetworkMedium *medium)
         }
 
         hw->mac.autoneg = 0;
+
+        if (intelSupportsEEE(adapter))
+            hw->dev_spec._82575.eee_disable = true;
 
         switch (medium->getIndex()) {
             case MEDIUM_INDEX_10HD:
@@ -9762,6 +9873,34 @@ void AppleIGB::intelSetupAdvForMedium(const IONetworkMedium *medium)
                 hw->fc.requested_mode = e1000_fc_full;
                 break;
 
+            case MEDIUM_INDEX_1000FDEEE:
+                hw->phy.autoneg_advertised = ADVERTISE_1000_FULL;
+                hw->mac.autoneg = 1;
+                hw->fc.requested_mode = e1000_fc_none;
+                hw->dev_spec._82575.eee_disable = false;
+                break;
+
+            case MEDIUM_INDEX_1000FDFCEEE:
+                hw->phy.autoneg_advertised = ADVERTISE_1000_FULL;
+                hw->mac.autoneg = 1;
+                hw->fc.requested_mode = e1000_fc_full;
+                hw->dev_spec._82575.eee_disable = false;
+                break;
+
+            case MEDIUM_INDEX_100FDEEE:
+                hw->phy.autoneg_advertised = ADVERTISE_100_FULL;
+                hw->mac.autoneg = 1;
+                hw->fc.requested_mode = e1000_fc_none;
+                hw->dev_spec._82575.eee_disable = false;
+                break;
+
+            case MEDIUM_INDEX_100FDFCEEE:
+                hw->phy.autoneg_advertised = ADVERTISE_100_FULL;
+                hw->mac.autoneg = 1;
+                hw->fc.requested_mode = e1000_fc_full;
+                hw->dev_spec._82575.eee_disable = false;
+                break;
+
             default:
                 if (hw->phy.media_type == e1000_media_type_fiber) {
                     /** @see igb_set_link_ksettings **/
@@ -9787,6 +9926,10 @@ void AppleIGB::intelSetupAdvForMedium(const IONetworkMedium *medium)
                 }
                 if (adapter->fc_autoneg)
                         hw->fc.requested_mode = e1000_fc_default;
+
+                if (intelSupportsEEE(adapter))
+                    hw->dev_spec._82575.eee_disable = false;
+
                 hw->mac.autoneg = 1;
                 break;
         }
@@ -9806,13 +9949,13 @@ void AppleIGB::intelSetupAdvForMedium(const IONetworkMedium *medium)
          * From IntelMausi
          */
 void AppleIGB::intelRestart() {
-        struct e1000_hw *hw = &priv_adapter.hw;
         struct igb_adapter *adapter = &priv_adapter;
 
         pr_debug("intelRestart ===> on en%u, linkUp=%u, carrier=%u\n",
                  netif->getUnitNumber(), linkUp, carrier());
 
         linkUp = false;
+        eeeMode = 0;
 
         while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
             usleep_range(1000, 2000);
@@ -9860,9 +10003,10 @@ IOReturn AppleIGB::selectMedium(const IONetworkMedium * medium)
 	return kIOReturnSuccess;
 }
 
+#define kNameLength 60
 bool AppleIGB::configureInterface(IONetworkInterface * interface)
 {
-	
+    char modelName[kNameLength];
 	IONetworkData * data = NULL;
 	
 	if (super::configureInterface(interface) == false) {
@@ -9878,13 +10022,15 @@ bool AppleIGB::configureInterface(IONetworkInterface * interface)
 	}
 	
 	// Get the Ethernet statistics structure.
-	
 	data = interface->getParameter(kIOEthernetStatsKey);
 	if (!data || !(etherStats = (IOEthernetStats *) data->getBuffer())) {
 		pr_err("netif getParameter kIOEthernetStatsKey failed.\n");
 		return false;
 	}
-	
+
+    snprintf(modelName, kNameLength, "Intel(R) Ethernet Controller %s (IGB)", deviceModelNames[chip_idx].name);
+    setProperty("model", modelName);
+
 	return true;
 }
 
@@ -10088,8 +10234,7 @@ void AppleIGB::checkLinkStatus()
 {
     struct igb_adapter *adapter = &priv_adapter;
     struct e1000_hw *hw = &priv_adapter.hw;
-    u32 thstat, ctrl_ext, link;
-    int i;
+    u32 link;
     u32 connsw;
 
     hw->mac.get_link_status = true;
@@ -10149,7 +10294,7 @@ void AppleIGB::checkLinkStatus()
             /* Start rx/tx and inform upper layers that the link is up now. */
             setLinkUp();
             /* Perform live checks periodically. */
-            watchdogSource->setTimeoutMS(1000);
+            watchdogSource->setTimeoutMS(200);
        }
     }
     pr_debug("checkLinkStatus() <===\n");
@@ -10210,11 +10355,27 @@ void AppleIGB::watchdogTask()
 {
 	struct igb_adapter *adapter = &priv_adapter;
 	struct e1000_hw *hw = &adapter->hw;
-	u32 thstat, ctrl_ext, link;
 	int i;
-	u32 connsw;
 
 	igb_update_stats(adapter);
+
+    for (i = 0; i < adapter->num_tx_queues; i++) {
+        struct igb_ring *tx_ring = adapter->tx_ring[i];
+
+        /* Force detection of hung controller every watchdog period */
+        set_bit(IGB_RING_FLAG_TX_DETECT_HANG, &tx_ring->flags);
+    }
+
+    /* Cause software interrupt to ensure rx ring is cleaned */
+    if (adapter->msix_entries) {
+        u32 eics = 0;
+
+        for (i = 0; i < adapter->num_q_vectors; i++)
+            eics |= adapter->q_vector[i]->eims_value;
+        E1000_WRITE_REG(hw, E1000_EICS, eics);
+    } else {
+        E1000_WRITE_REG(hw, E1000_ICS, E1000_ICS_RXDMT0);
+    }
 
 	/* Reset the timer */
 	if (!test_bit(__IGB_DOWN, &adapter->state)){
@@ -10223,6 +10384,19 @@ void AppleIGB::watchdogTask()
             intelRestart();
         }
 	}
+
+    if (stalled) {
+        pr_debug("Restart stalled queue free=%u, needed=%u\n", txNumFreeDesc, DESC_NEEDED);
+        transmitQueue->service(IOBasicOutputQueue::kServiceAsync);
+        stalled = FALSE;
+//        if (txNumFreeDesc >= DESC_NEEDED) {
+//            pr_debug("Enough free descriptors (%u), restart stalled queue\n", txNumFreeDesc);
+//            transmitQueue->service(IOBasicOutputQueue::kServiceAsync);
+//            stalled = FALSE;
+//        } else {
+//            pr_debug("Keeping queue stalled, free=%u (%u)\n", txNumFreeDesc, DESC_NEEDED);
+//        }
+    }
 
     watchdogSource->setTimeoutMS(200);
 }
@@ -10363,7 +10537,7 @@ UInt32 AppleIGB::getFeatures() const {
 void AppleIGB::startTxQueue()
 {
 	pr_debug("AppleIGB::startTxQueue()\n");
-	txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN, MAX_SKB_FRAGS);
+	txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN, MAX_SKB_FRAGS);
 	if(txMbufCursor && transmitQueue)
 		transmitQueue->start();
 }

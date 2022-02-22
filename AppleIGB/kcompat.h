@@ -299,10 +299,11 @@ typedef void AppleIGB;
 #define	unlikely(x)	(x)
 #define	likely(x)	(x)
 #define	BUG()
-#define	wmb()
-#define	rmb()
-#define	mmiowb()
-#define	smp_mb()	mb()
+
+#define    wmb() mb()
+#define    rmb() mb()
+#define    mmiowb()
+#define    smp_mb()    mb()
 #define mb()
 
 #define	__MODULE_STRING(s)	"x"

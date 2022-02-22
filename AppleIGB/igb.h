@@ -112,12 +112,12 @@ struct igb_adapter;
 #define IGB_INT_MODE_MSIX                  2
 
 /* TX/RX descriptor defines */
-#define IGB_DEFAULT_TXD                  256
-#define IGB_DEFAULT_TX_WORK		 128
+#define IGB_DEFAULT_TXD                  1024
+#define IGB_DEFAULT_TX_WORK		 512
 #define IGB_MIN_TXD                       80
 #define IGB_MAX_TXD                     4096
 
-#define IGB_DEFAULT_RXD                  256
+#define IGB_DEFAULT_RXD                  1024
 #define IGB_MIN_RXD                       80
 #define IGB_MAX_RXD                     4096
 
@@ -128,10 +128,10 @@ struct igb_adapter;
 #define MAX_Q_VECTORS                     10
 
 /* Transmit and receive queues */
-#define IGB_MAX_RX_QUEUES                 16
+#define IGB_MAX_RX_QUEUES                  8
 #define IGB_MAX_RX_QUEUES_82575            4
 #define IGB_MAX_RX_QUEUES_I211             2
-#define IGB_MAX_TX_QUEUES                 16
+#define IGB_MAX_TX_QUEUES                  8
 
 #define IGB_MAX_VF_MC_ENTRIES             30
 #define IGB_MAX_VF_FUNCTIONS               8
