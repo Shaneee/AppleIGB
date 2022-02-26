@@ -10333,7 +10333,7 @@ void AppleIGB::interruptOccurred(IOInterruptEventSource * src, int count)
 		adapter->stats.doosync++;
 	}
 	
-	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
+	if (unlikely(icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC))) {
         checkLinkStatus();
 //
 //		/* guard against interrupt when we're going down */
