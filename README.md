@@ -27,4 +27,5 @@ Feel free to post issues (ensure you provide additional device info and whether 
 
 ## Known Current Issues
 
- - Connection drops. Disconnecting and reconnecting resolves it.
+ - There are reports for connection drops (Disconnecting and reconnecting resolves it). Fully stable in my setup (i211 @ B450).
+ - This driver doesn't use MSI-X interrupts
