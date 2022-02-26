@@ -296,8 +296,10 @@ typedef void AppleIGB;
 
 #define	prefetch(x)
 #define	prefetchw(x)
-#define	unlikely(x)	(x)
-#define	likely(x)	(x)
+//#define	unlikely(x)	(x)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+//#define	likely(x)	(x)
+#define likely(x) __builtin_expect(!!(x), 1)
 #define	BUG()
 
 #define    wmb() mb()
@@ -346,7 +348,11 @@ extern os_log_t igb_logger;
 
 #else
 
+#ifdef DEBUG
 #define    pr_debug(args...)    IOLog(PFX args)
+#else
+#define    pr_debug(args...)
+#endif
 #define    pr_err(args...)      IOLog(PFX args)
 #define    dev_warn(dev,args...)    IOLog(PFX args)
 #define    dev_info(dev,args...)    IOLog(PFX args)

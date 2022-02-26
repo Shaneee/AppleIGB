@@ -149,13 +149,13 @@ static int netif_carrier_ok(IOEthernetController* netdev)
 
 static void netif_wake_queue(IOEthernetController* netdev)
 {
-    pr_debug("netif_wake_queue().\n");
+    DEBUGFUNC("netif_wake_queue().\n");
 	netif_tx_wake_all_queues(netdev);
 }
 
 static void netif_stop_queue(IOEthernetController* netdev)
 {
-    pr_debug("netif_stop_queue().\n");
+    DEBUGFUNC("netif_stop_queue().\n");
 	netif_tx_stop_all_queues(netdev);
 }
 
@@ -9634,8 +9634,8 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
 	struct igb_adapter *adapter = &priv_adapter;
     UInt32 result = kIOReturnOutputDropped;
 	
-	if (!(enabledForNetif && linkUp) || !txMbufCursor
-            || test_bit(__IGB_DOWN, &adapter->state)) {
+    if (unlikely(!(enabledForNetif && linkUp) || !txMbufCursor
+            || test_bit(__IGB_DOWN, &adapter->state))) {
         pr_debug("output: Dropping packet on disabled device\n");
         goto error;
 	}
@@ -9658,7 +9658,8 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
          *       + 1 desc for context descriptor,
          * otherwise try next time */
         txNumFreeDesc = igb_desc_unused(tx_ring);
-        if (txNumFreeDesc < MAX_SKB_FRAGS + 3) //igb_maybe_stop_tx
+        if (txNumFreeDesc < MAX_SKB_FRAGS + 3 //igb_maybe_stop_tx
+            || stalled) /** even if we have free desc we should exit in stalled mode as queue is enabled by threadsafe interrupts -> native igb code (see igb_poll) */
         {
             /* this is a hard error */
 			netStats->outputErrors += 1;
@@ -9670,9 +9671,9 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
              * are not ready for this (kernel panic) further on mbuf_pkthdr_len
              * so just error as in some other drivers hoping that upper layers will be able to
              * handle this properly */
-//            result = kIOReturnOutputStall;
-//            stalled = true;
-            goto error;
+            result = kIOReturnOutputStall;
+            stalled = true;
+            goto done;
         }
         /* record the location of the first descriptor for this packet */
         first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
@@ -9707,7 +9708,7 @@ UInt32 AppleIGB::outputPacket(mbuf_t skb, void * param)
         
 		if(useTSO)
 			tso = igb_tso(tx_ring, first, &hdr_len);
-        if (tso < 0){
+        if (unlikely(tso < 0)){
             igb_unmap_and_free_tx_resource(tx_ring, first);
             break;
         } else if (!tso)
@@ -10338,9 +10339,9 @@ void AppleIGB::interruptOccurred(IOInterruptEventSource * src, int count)
 //		/* guard against interrupt when we're going down */
 //		if (!test_bit(__IGB_DOWN, &adapter->state))
 //			watchdogSource->setTimeoutMS(1);
-	}
-	
-	igb_poll(q_vector, 64);
+    } else {
+        igb_poll(q_vector, 64);
+    }
 }
 
 void AppleIGB::interruptHandler(OSObject * target, IOInterruptEventSource * src, int count)
@@ -10384,19 +10385,6 @@ void AppleIGB::watchdogTask()
             intelRestart();
         }
 	}
-
-    if (stalled) {
-        pr_debug("Restart stalled queue free=%u, needed=%u\n", txNumFreeDesc, DESC_NEEDED);
-        transmitQueue->service(IOBasicOutputQueue::kServiceAsync);
-        stalled = FALSE;
-//        if (txNumFreeDesc >= DESC_NEEDED) {
-//            pr_debug("Enough free descriptors (%u), restart stalled queue\n", txNumFreeDesc);
-//            transmitQueue->service(IOBasicOutputQueue::kServiceAsync);
-//            stalled = FALSE;
-//        } else {
-//            pr_debug("Keeping queue stalled, free=%u (%u)\n", txNumFreeDesc, DESC_NEEDED);
-//        }
-    }
 
     watchdogSource->setTimeoutMS(200);
 }
@@ -10536,10 +10524,16 @@ UInt32 AppleIGB::getFeatures() const {
 
 void AppleIGB::startTxQueue()
 {
-	pr_debug("AppleIGB::startTxQueue()\n");
-	txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN, MAX_SKB_FRAGS);
-	if(txMbufCursor && transmitQueue)
-		transmitQueue->start();
+    DEBUGFUNC("AppleIGB::startTxQueue\n");
+    if (likely(stalled && txMbufCursor && transmitQueue)) {
+        pr_debug("Assuming wake queue called.\n");
+        transmitQueue->service(IOBasicOutputQueue::kServiceAsync);
+    } else {
+        txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN, MAX_SKB_FRAGS);
+        if(txMbufCursor && transmitQueue)
+            transmitQueue->start();
+    }
+    stalled = false;
 }
 
 void AppleIGB::stopTxQueue()

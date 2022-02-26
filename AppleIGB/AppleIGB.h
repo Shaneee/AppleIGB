@@ -164,7 +164,7 @@ public:
 	IOMbufNaturalMemoryCursor * txCursor(){ return txMbufCursor; }
 	void rxChecksumOK( mbuf_t, UInt32 flag );
 	bool running(){return enabledForNetif;}
-	bool queueStopped(){return txMbufCursor == NULL;}
+	bool queueStopped(){return txMbufCursor == NULL || stalled;}
 	bool carrier();
 	void setCarrier(bool);
     
