@@ -2267,10 +2267,12 @@ s32 e1000_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
 		ret_val = hw->phy.ops.read_reg(hw, PHY_STATUS, &phy_status);
 		if (ret_val)
 			break;
-        if (phy_status & MII_SR_LINK_STATUS)
+        if (phy_status & MII_SR_LINK_STATUS) {
+            DEBUGOUT1("OK Link register status: 0x%08x\n", phy_status);
 			break;
+        }
         else
-            DEBUGOUT1("No link register status %u", phy_status);
+            DEBUGOUT1("No link register status 0x%08x (try %d/%d)\n", phy_status, i+1, iterations);
 		if (usec_interval >= 1000)
 			msec_delay(usec_interval/1000);
 		else
