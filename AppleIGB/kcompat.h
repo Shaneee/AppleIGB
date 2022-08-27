@@ -39,7 +39,7 @@ typedef __uint8_t u8;
 
 #define	sk_buff	__mbuf
 
-#define	__iomem
+#define	__iomem volatile
 
 #define	dma_addr_t	IOPhysicalAddress
 
@@ -81,12 +81,20 @@ typedef __uint8_t u8;
 /* GFP_ATOMIC means both !wait (__GFP_WAIT not set) and use emergency pool */
 #define GFP_ATOMIC      0
 
-#define DEFINE_DMA_UNMAP_ADDR(ADDR_NAME)        dma_addr_t ADDR_NAME
-#define DEFINE_DMA_UNMAP_LEN(LEN_NAME)          UInt32 LEN_NAME
-#define dma_unmap_addr(PTR, ADDR_NAME)           ((PTR)->ADDR_NAME)
-#define dma_unmap_addr_set(PTR, ADDR_NAME, VAL)  (((PTR)->ADDR_NAME) = (VAL))
-#define dma_unmap_len(PTR, LEN_NAME)             ((PTR)->LEN_NAME)
-#define dma_unmap_len_set(PTR, LEN_NAME, VAL)    (((PTR)->LEN_NAME) = (VAL))
+typedef unsigned int __u32;
+
+#undef DEFINE_DMA_UNMAP_ADDR
+#define DEFINE_DMA_UNMAP_ADDR(ADDR_NAME)	dma_addr_t ADDR_NAME
+#undef DEFINE_DMA_UNMAP_LEN
+#define DEFINE_DMA_UNMAP_LEN(LEN_NAME)		__u32 LEN_NAME
+#undef dma_unmap_addr
+#define dma_unmap_addr(PTR, ADDR_NAME)		((PTR)->ADDR_NAME)
+#undef dma_unmap_addr_set
+#define dma_unmap_addr_set(PTR, ADDR_NAME, VAL)	(((PTR)->ADDR_NAME) = (VAL))
+#undef dma_unmap_len
+#define dma_unmap_len(PTR, LEN_NAME)		((PTR)->LEN_NAME)
+#undef dma_unmap_len_set
+#define dma_unmap_len_set(PTR, LEN_NAME, VAL)	(((PTR)->LEN_NAME) = (VAL))
 
 
 struct net_device_stats {
@@ -146,6 +154,54 @@ struct work_struct {
 	void *wq_data;
 	struct timer_list timer;
 };
+
+/* hlist_* code - double linked lists */
+struct hlist_head {
+	struct hlist_node *first;
+};
+
+struct hlist_node {
+	struct hlist_node *next, **pprev;
+};
+
+static inline void __hlist_del(struct hlist_node *n)
+{
+	struct hlist_node *next = n->next;
+	struct hlist_node **pprev = n->pprev;
+	*pprev = next;
+	if (next)
+	next->pprev = pprev;
+}
+
+static inline void hlist_del(struct hlist_node *n)
+{
+	__hlist_del(n);
+	n->next = NULL;
+	n->pprev = NULL;
+}
+
+static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
+{
+	struct hlist_node *first = h->first;
+	n->next = first;
+	if (first)
+		first->pprev = &n->next;
+	h->first = n;
+	n->pprev = &h->first;
+}
+
+static inline int hlist_empty(const struct hlist_head *h)
+{
+	return !h->first;
+}
+#define HLIST_HEAD_INIT { .first = NULL }
+#define HLIST_HEAD(name) struct hlist_head name = {  .first = NULL }
+#define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
+static inline void INIT_HLIST_NODE(struct hlist_node *h)
+{
+	h->next = NULL;
+	h->pprev = NULL;
+}
 
 #ifndef rcu_head
 struct __kc_callback_head {
@@ -266,10 +322,14 @@ static inline unsigned int _kc_ether_crc_le(int length, unsigned char *data)
 	return crc;
 }
 
-#define	EIO		5
-#define	ENOMEM	12
-#define	EBUSY	16
-#define EINVAL  22  /* Invalid argument */
+#define	EIO			5
+#define ENOENT		2
+#define	ENOMEM		12
+#define	EBUSY		16
+#define EINVAL  	22  /* Invalid argument */
+#define ENOTSUP		524
+#define EOPNOTSUPP 	ENOTSUP
+
 /*****************************************************************************/
 #define msleep(x)	IOSleep(x)
 #define udelay(x)	IODelay(x)
@@ -306,6 +366,7 @@ typedef void AppleIGB;
 #define    rmb() mb()
 #define    mmiowb()
 #define    smp_mb()    mb()
+#define    smp_rmb() mb()
 #define mb()
 
 #define	__MODULE_STRING(s)	"x"
@@ -376,6 +437,7 @@ extern os_log_t igb_logger;
 
 #define		iphdr	ip
 struct net_device { void* dummy; };
+struct ifreq { void* dummy; };
 
 enum irqreturn {
 	IRQ_NONE,
@@ -467,6 +529,16 @@ static inline unsigned ether_addr_equal(const u8 *addr1, const u8 *addr2)
 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
 }
 
+/**
+ * eth_zero_addr - Assign zero address
+ * @addr: Pointer to a six-byte array containing the Ethernet address
+ *
+ * Assign the zero address to the given address array.
+ */
+static inline void eth_zero_addr(u8 *addr)
+{
+	memset(addr, 0x00, ETH_ALEN);
+}
 
 #ifdef HAVE_VLAN_RX_REGISTER
 #define VLAN_GROUP_ARRAY_LEN          4096
@@ -485,5 +557,18 @@ struct vlan_group {
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+#ifndef READ_ONCE
+#define READ_ONCE(_x) ACCESS_ONCE(_x)
+#endif
+
+#define fallthrough do {} while (0)  /* fallthrough */
+
+#ifndef BIT
+#define BIT(nr)         (1UL << (nr))
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
 
 #endif /* _KCOMPAT_H_ */
