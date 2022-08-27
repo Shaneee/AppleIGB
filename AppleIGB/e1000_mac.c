@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 2007 - 2021 Intel Corporation. */
+/* Copyright(c) 2007 - 2022 Intel Corporation. */
 
 #include "e1000_api.h"
 
 static s32 e1000_validate_mdi_setting_generic(struct e1000_hw *hw);
 static void e1000_set_lan_id_multi_port_pcie(struct e1000_hw *hw);
 static void e1000_config_collision_dist_generic(struct e1000_hw *hw);
-static int e1000_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
 
 /**
  *  e1000_init_mac_ops_generic - Initialize MAC function pointers
@@ -45,8 +44,8 @@ void e1000_init_mac_ops_generic(struct e1000_hw *hw)
 	mac->ops.update_mc_addr_list = e1000_null_update_mc;
 	mac->ops.clear_vfta = e1000_null_mac_generic;
 	mac->ops.write_vfta = e1000_null_write_vfta;
-	mac->ops.rar_set = e1000_rar_set_generic;
 	mac->ops.validate_mdi_setting = e1000_validate_mdi_setting_generic;
+	mac->ops.rar_set = e1000_rar_set_generic;
 }
 
 /**
@@ -240,11 +239,7 @@ void e1000_clear_vfta_generic(struct e1000_hw *hw)
  **/
 void e1000_write_vfta_generic(struct e1000_hw *hw, u32 offset, u32 value)
 {
-    static bool b = FALSE;
-    if (!b) {
-        DEBUGFUNC("e1000_write_vfta_generic");
-        b = TRUE;
-    }
+	DEBUGFUNC("e1000_write_vfta_generic");
 
 	E1000_WRITE_REG_ARRAY(hw, E1000_VFTA, offset, value);
 	E1000_WRITE_FLUSH(hw);
@@ -363,7 +358,7 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
  *  Sets the receive address array register at index to the address passed
  *  in by addr.
  **/
-static int e1000_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
+int e1000_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
 {
 	u32 rar_low, rar_high;
 
@@ -464,33 +459,6 @@ u32 e1000_hash_mc_addr_generic(struct e1000_hw *hw, u8 *mc_addr)
 }
 
 /**
- *  e1000_i21x_hw_workaround - workarounds potential HW issue in i21X
- *  @hw: pointer to the HW structure
- *
- *  Checks if multicast array is wrote correctly
- *  If not then rewrites again to register
- **/
-static void e1000_i21x_hw_workaround(struct e1000_hw *hw)
-{
-	bool is_failed;
-	int i;
-
-	do {
-		is_failed = false;
-		for (i = hw->mac.mta_reg_count - 1; i >= 0; i--) {
-			if (E1000_READ_REG_ARRAY(hw, E1000_MTA, i) !=
-			    hw->mac.mta_shadow[i]) {
-				is_failed = true;
-				E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i,
-						      hw->mac.mta_shadow[i]);
-				E1000_WRITE_FLUSH(hw);
-				break;
-			}
-		}
-	} while (is_failed);
-}
-
-/**
  *  e1000_update_mc_addr_list_generic - Update Multicast addresses
  *  @hw: pointer to the HW structure
  *  @mc_addr_list: array of multicast addresses to program
@@ -525,8 +493,6 @@ void e1000_update_mc_addr_list_generic(struct e1000_hw *hw,
 	for (i = hw->mac.mta_reg_count - 1; i >= 0; i--)
 		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, hw->mac.mta_shadow[i]);
 	E1000_WRITE_FLUSH(hw);
-	if (hw->mac.type == e1000_i210 || hw->mac.type == e1000_i211)
-		e1000_i21x_hw_workaround(hw);
 }
 
 /**
@@ -861,7 +827,7 @@ s32 e1000_check_for_serdes_link_generic(struct e1000_hw *hw)
  *  Read the EEPROM for the default values for flow control and store the
  *  values.
  **/
-static s32 e1000_set_default_fc_generic(struct e1000_hw *hw)
+s32 e1000_set_default_fc_generic(struct e1000_hw *hw)
 {
 	s32 ret_val;
 	u16 nvm_data;
@@ -1631,7 +1597,7 @@ s32 e1000_get_speed_and_duplex_fiber_serdes_generic(struct e1000_hw E1000_UNUSED
 s32 e1000_get_hw_semaphore_generic(struct e1000_hw *hw)
 {
 	u32 swsm;
-	s32 timeout = hw->nvm.word_size + 1;
+	s32 timeout = E1000_SWSM_TIMEOUT;
 	s32 i = 0;
 
 	DEBUGFUNC("e1000_get_hw_semaphore_generic");
@@ -1988,33 +1954,33 @@ void e1000_set_pcie_no_snoop_generic(struct e1000_hw *hw, u32 no_snoop)
 }
 
 /**
- *  e1000_disable_pcie_master_generic - Disables PCI-express master access
+ *  e1000_disable_pcie_primary_generic - Disables PCI-express primary access
  *  @hw: pointer to the HW structure
  *
  *  Returns E1000_SUCCESS if successful, else returns -10
- *  (-E1000_ERR_MASTER_REQUESTS_PENDING) if master disable bit has not caused
- *  the master requests to be disabled.
+ *  (-E1000_ERR_PRIMARY_REQUESTS_PENDING) if primary disable bit has not caused
+ *  the primary requests to be disabled.
  *
- *  Disables PCI-Express master access and verifies there are no pending
+ *  Disables PCI-Express primary access and verifies there are no pending
  *  requests.
  **/
-s32 e1000_disable_pcie_master_generic(struct e1000_hw *hw)
+s32 e1000_disable_pcie_primary_generic(struct e1000_hw *hw)
 {
 	u32 ctrl;
-	s32 timeout = MASTER_DISABLE_TIMEOUT;
+	s32 timeout = PRIMARY_DISABLE_TIMEOUT;
 
-	DEBUGFUNC("e1000_disable_pcie_master_generic");
+	DEBUGFUNC("e1000_disable_pcie_primary_generic");
 
 	if (hw->bus.type != e1000_bus_type_pci_express)
 		return E1000_SUCCESS;
 
 	ctrl = E1000_READ_REG(hw, E1000_CTRL);
-	ctrl |= E1000_CTRL_GIO_MASTER_DISABLE;
+	ctrl |= E1000_CTRL_GIO_PRIMARY_DISABLE;
 	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
 
 	while (timeout) {
 		if (!(E1000_READ_REG(hw, E1000_STATUS) &
-		      E1000_STATUS_GIO_MASTER_ENABLE) ||
+		      E1000_STATUS_GIO_PRIMARY_ENABLE) ||
 				E1000_REMOVED(hw->hw_addr))
 			break;
 		usec_delay(100);
@@ -2022,8 +1988,8 @@ s32 e1000_disable_pcie_master_generic(struct e1000_hw *hw)
 	}
 
 	if (!timeout) {
-		DEBUGOUT("Master requests are pending.\n");
-		return -E1000_ERR_MASTER_REQUESTS_PENDING;
+		DEBUGOUT("Primary requests are pending.\n");
+		return -E1000_ERR_PRIMARY_REQUESTS_PENDING;
 	}
 
 	return E1000_SUCCESS;

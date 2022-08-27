@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 2007 - 2021 Intel Corporation. */
+/* Copyright(c) 2007 - 2022 Intel Corporation. */
 
 #include "e1000_api.h"
 
@@ -562,7 +562,7 @@ s32 e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data)
 				 * lane and update whole word
 				 */
 				data_local = i2ccmd & 0xFF00;
-				data_local |= data;
+				data_local |= (u32)data;
 				i2ccmd = ((offset <<
 					E1000_I2CCMD_REG_ADDR_SHIFT) |
 					E1000_I2CCMD_OPCODE_WRITE | data_local);
@@ -657,7 +657,7 @@ s32 e1000_set_page_igp(struct e1000_hw *hw, u16 page)
 {
 	DEBUGFUNC("e1000_set_page_igp");
 
-	DEBUGOUT1("Setting page 0x%x\n", page);
+	DEBUGOUT2("Setting page %d (0x%x)\n", page >> IGP_PAGE_SHIFT, page);
 
 	hw->phy.addr = 1;
 
@@ -948,17 +948,17 @@ s32 e1000_write_kmrn_reg_locked(struct e1000_hw *hw, u32 offset, u16 data)
 }
 
 /**
- *  e1000_set_master_slave_mode - Setup PHY for Master/slave mode
+ *  e1000_set_primary_secondary_mode - Setup PHY for Primary/Secondary mode
  *  @hw: pointer to the HW structure
  *
- *  Sets up Master/slave mode
+ *  Sets up Primary/Secondary mode
  **/
-static s32 e1000_set_master_slave_mode(struct e1000_hw *hw)
+static s32 e1000_set_primary_secondary_mode(struct e1000_hw *hw)
 {
 	s32 ret_val;
 	u16 phy_data;
 
-	/* Resolve Master/Slave mode */
+	/* Resolve Primary/Secondary mode */
 	ret_val = hw->phy.ops.read_reg(hw, PHY_1000T_CTRL, &phy_data);
 	if (ret_val)
 		return ret_val;
@@ -966,20 +966,20 @@ static s32 e1000_set_master_slave_mode(struct e1000_hw *hw)
 	/* load defaults for future use */
 	hw->phy.original_ms_type = (phy_data & CR_1000T_MS_ENABLE) ?
 				   ((phy_data & CR_1000T_MS_VALUE) ?
-				    e1000_ms_force_master :
-				    e1000_ms_force_slave) : e1000_ms_auto;
+				    e1000_ms_force_primary :
+				    e1000_ms_force_secondary) : e1000_ms_auto;
 
 	switch (hw->phy.ms_type) {
-	case e1000_ms_force_master:
+	case e1000_ms_force_primary:
 		phy_data |= (CR_1000T_MS_ENABLE | CR_1000T_MS_VALUE);
 		break;
-	case e1000_ms_force_slave:
+	case e1000_ms_force_secondary:
 		phy_data |= CR_1000T_MS_ENABLE;
 		phy_data &= ~(CR_1000T_MS_VALUE);
 		break;
 	case e1000_ms_auto:
 		phy_data &= ~CR_1000T_MS_ENABLE;
-		/* fall-through */
+		break;
 	default:
 		break;
 	}
@@ -1050,7 +1050,7 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
 	if (ret_val)
 		return ret_val;
 
-	return e1000_set_master_slave_mode(hw);
+	return e1000_set_primary_secondary_mode(hw);
 }
 
 /**
@@ -1134,11 +1134,11 @@ s32 e1000_copper_link_setup_m88(struct e1000_hw *hw)
 			phy_data &= ~M88EC018_EPSCR_DOWNSHIFT_COUNTER_MASK;
 			phy_data |= M88EC018_EPSCR_DOWNSHIFT_COUNTER_5X;
 		} else {
-			/* Configure Master and Slave downshift values */
-			phy_data &= ~(M88E1000_EPSCR_MASTER_DOWNSHIFT_MASK |
-				     M88E1000_EPSCR_SLAVE_DOWNSHIFT_MASK);
-			phy_data |= (M88E1000_EPSCR_MASTER_DOWNSHIFT_1X |
-				     M88E1000_EPSCR_SLAVE_DOWNSHIFT_1X);
+			/* Configure Primary and Secondary downshift values */
+			phy_data &= ~(M88E1000_EPSCR_PRIMARY_DOWNSHIFT_MASK |
+				     M88E1000_EPSCR_SECONDARY_DOWNSHIFT_MASK);
+			phy_data |= (M88E1000_EPSCR_PRIMARY_DOWNSHIFT_1X |
+				     M88E1000_EPSCR_SECONDARY_DOWNSHIFT_1X);
 		}
 		ret_val = phy->ops.write_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
 					     phy_data);
@@ -1201,7 +1201,7 @@ s32 e1000_copper_link_setup_m88_gen2(struct e1000_hw *hw)
 			phy_data |= M88E1000_PSCR_AUTO_X_1000T;
 			break;
 		}
-		/* Fall through */
+		fallthrough;
 	case 0:
 	default:
 		phy_data |= M88E1000_PSCR_AUTO_X_MODE;
@@ -1248,7 +1248,7 @@ s32 e1000_copper_link_setup_m88_gen2(struct e1000_hw *hw)
 		return ret_val;
 	}
 
-	ret_val = e1000_set_master_slave_mode(hw);
+	ret_val = e1000_set_primary_secondary_mode(hw);
 	if (ret_val)
 		return ret_val;
 
@@ -1259,8 +1259,8 @@ s32 e1000_copper_link_setup_m88_gen2(struct e1000_hw *hw)
  *  e1000_copper_link_setup_igp - Setup igp PHY's for copper link
  *  @hw: pointer to the HW structure
  *
- *  Sets up LPLU, MDI/MDI-X, polarity, Smartspeed and Master/Slave config for
- *  igp PHY's.
+ *  Sets up LPLU, MDI/MDI-X, polarity, Smartspeed
+ *  and Primary/Secondary config for igp PHY's.
  **/
 s32 e1000_copper_link_setup_igp(struct e1000_hw *hw)
 {
@@ -1315,10 +1315,10 @@ s32 e1000_copper_link_setup_igp(struct e1000_hw *hw)
 	if (ret_val)
 		return ret_val;
 
-	/* set auto-master slave resolution settings */
+	/* set auto primary-secondary resolution settings */
 	if (hw->mac.autoneg) {
 		/* when autonegotiation advertisement is only 1000Mbps then we
-		 * should disable SmartSpeed and enable Auto MasterSlave
+		 * should disable SmartSpeed and enable Auto Primary/Secondary
 		 * resolution as hardware default.
 		 */
 		if (phy->autoneg_advertised == ADVERTISE_1000_FULL) {
@@ -1336,7 +1336,7 @@ s32 e1000_copper_link_setup_igp(struct e1000_hw *hw)
 			if (ret_val)
 				return ret_val;
 
-			/* Set auto Master/Slave resolution process */
+			/* Set auto Primary/Secondary resolution process */
 			ret_val = phy->ops.read_reg(hw, PHY_1000T_CTRL, &data);
 			if (ret_val)
 				return ret_val;
@@ -1347,7 +1347,7 @@ s32 e1000_copper_link_setup_igp(struct e1000_hw *hw)
 				return ret_val;
 		}
 
-		ret_val = e1000_set_master_slave_mode(hw);
+		ret_val = e1000_set_primary_secondary_mode(hw);
 	}
 
 	return ret_val;
@@ -1582,7 +1582,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
 s32 e1000_setup_copper_link_generic(struct e1000_hw *hw)
 {
 	s32 ret_val;
-	bool link = TRUE;
+	bool link;
 
 	DEBUGFUNC("e1000_setup_copper_link_generic");
 
@@ -2241,7 +2241,8 @@ s32 e1000_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
 			       u32 usec_interval, bool *success)
 {
 	s32 ret_val = E1000_SUCCESS;
-	u16 i, phy_status;
+	u16 phy_status;
+	u32 i;
 
 	DEBUGFUNC("e1000_phy_has_link_generic");
 
@@ -2270,8 +2271,7 @@ s32 e1000_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
         if (phy_status & MII_SR_LINK_STATUS) {
             DEBUGOUT1("OK Link register status: 0x%08x\n", phy_status);
 			break;
-        }
-        else
+        } else
             DEBUGOUT1("No link register status 0x%08x (try %d/%d)\n", phy_status, i+1, iterations);
 		if (usec_interval >= 1000)
 			msec_delay(usec_interval/1000);
@@ -2328,7 +2328,7 @@ s32 e1000_get_cable_length_m88(struct e1000_hw *hw)
 s32 e1000_get_cable_length_m88_gen2(struct e1000_hw *hw)
 {
 	struct e1000_phy_info *phy = &hw->phy;
-	s32 ret_val;
+	s32 ret_val  = 0;
 	u16 phy_data, phy_data2, is_cm;
 	u16 index, default_page;
 
@@ -2844,7 +2844,7 @@ s32 e1000_phy_init_script_igp3(struct e1000_hw *hw)
 	hw->phy.ops.write_reg(hw, 0x1F72, 0x3FB0);
 	/* AHT reset limit to 1 */
 	hw->phy.ops.write_reg(hw, 0x1F76, 0xC0FF);
-	/* Set AHT master delay to 127 msec */
+	/* Set AHT primary delay to 127 msec */
 	hw->phy.ops.write_reg(hw, 0x1F77, 0x1DEC);
 	/* Set scan bits for AHT */
 	hw->phy.ops.write_reg(hw, 0x1F78, 0xF9EF);
@@ -2860,7 +2860,7 @@ s32 e1000_phy_init_script_igp3(struct e1000_hw *hw)
 	 * to 8 for channel A
 	 */
 	hw->phy.ops.write_reg(hw, 0x1898, 0xD918);
-	/* Disable AHT in Slave mode on channel A */
+	/* Disable AHT in Secondary mode on channel A */
 	hw->phy.ops.write_reg(hw, 0x187A, 0x0800);
 	/* Enable LPLU and disable AN to 1000 in non-D0a states,
 	 * Enable SPD+B2B
@@ -3383,4 +3383,76 @@ bool e1000_is_mphy_ready(struct e1000_hw *hw)
 		DEBUGOUT("ERROR READING mPHY control register, phy is busy.\n");
 
 	return ready;
+}
+
+/**
+ *  __e1000_access_xmdio_reg - Read/write XMDIO register
+ *  @hw: pointer to the HW structure
+ *  @address: XMDIO address to program
+ *  @dev_addr: device address to program
+ *  @data: pointer to value to read/write from/to the XMDIO address
+ *  @read: boolean flag to indicate read or write
+ **/
+static s32 __e1000_access_xmdio_reg(struct e1000_hw *hw, u16 address,
+				    u8 dev_addr, u16 *data, bool read)
+{
+	s32 ret_val;
+
+	DEBUGFUNC("__e1000_access_xmdio_reg");
+
+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, dev_addr);
+	if (ret_val)
+		return ret_val;
+
+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAAD, address);
+	if (ret_val)
+		return ret_val;
+
+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, E1000_MMDAC_FUNC_DATA |
+					dev_addr);
+	if (ret_val)
+		return ret_val;
+
+	if (read)
+		ret_val = hw->phy.ops.read_reg(hw, E1000_MMDAAD, data);
+	else
+		ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAAD, *data);
+	if (ret_val)
+		return ret_val;
+
+	/* Recalibrate the device back to 0 */
+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, 0);
+	if (ret_val)
+		return ret_val;
+
+	return ret_val;
+}
+
+/**
+ *  e1000_read_xmdio_reg - Read XMDIO register
+ *  @hw: pointer to the HW structure
+ *  @addr: XMDIO address to program
+ *  @dev_addr: device address to program
+ *  @data: value to be read from the EMI address
+ **/
+s32 e1000_read_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 *data)
+{
+	DEBUGFUNC("e1000_read_xmdio_reg");
+
+		return __e1000_access_xmdio_reg(hw, addr, dev_addr, data, true);
+}
+
+/**
+ *  e1000_write_xmdio_reg - Write XMDIO register
+ *  @hw: pointer to the HW structure
+ *  @addr: XMDIO address to program
+ *  @dev_addr: device address to program
+ *  @data: value to be written to the XMDIO address
+ **/
+s32 e1000_write_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 data)
+{
+	DEBUGFUNC("e1000_write_xmdio_reg");
+
+		return __e1000_access_xmdio_reg(hw, addr, dev_addr, &data,
+						false);
 }

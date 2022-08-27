@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright(c) 2007 - 2021 Intel Corporation. */
+/* Copyright(c) 2007 - 2022 Intel Corporation. */
 
 /* glue for the OS independent part of e1000
  * includes register access macros
@@ -27,15 +27,16 @@
 #include <linux/sched.h>
 #endif
 #include "kcompat.h"
+
 #define usec_delay(x) udelay(x)
 #define usec_delay_irq(x) udelay(x)
 #ifndef msec_delay
 #define msec_delay(x) do { \
-	/* Don't mdelay in interrupt context! */ \
-	if (in_interrupt()) \
-		BUG(); \
-	else \
-		msleep(x); \
+    /* Don't mdelay in interrupt context! */ \
+    if (in_interrupt()) \
+        BUG(); \
+    else \
+        msleep(x); \
 } while (0)
 
 /* Some workarounds require millisecond delays and are run during interrupt
@@ -82,7 +83,7 @@ struct e1000_hw;
 /* write operations, indexed using DWORDS */
 #define E1000_WRITE_REG(hw, reg, val) \
 do { \
-	u8 __iomem *hw_addr = ACCESS_ONCE((hw)->hw_addr); \
+	u8 __iomem *hw_addr = READ_ONCE((hw)->hw_addr); \
 	if (!E1000_REMOVED(hw_addr)) \
 		writel((val), &hw_addr[(reg)]); \
 } while (0)
@@ -132,5 +133,10 @@ u32 e1000_read_reg(struct e1000_hw *hw, u32 reg);
 	readb(READ_ONCE((a)->flash_address) + reg))
 
 #define E1000_REMOVED(h) unlikely(!(h))
+
+/* VF requests to clear all unicast MAC filters */
+#define E1000_VF_MAC_FILTER_CLR (0x01 << E1000_VT_MSGINFO_SHIFT)
+/* VF requests to add unicast MAC filter */
+#define E1000_VF_MAC_FILTER_ADD (0x02 << E1000_VT_MSGINFO_SHIFT)
 
 #endif /* _E1000_OSDEP_H_ */
