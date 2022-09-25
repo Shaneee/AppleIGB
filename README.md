@@ -29,5 +29,5 @@ Feel free to post issues (ensure you provide additional device info and whether 
 
 ## Known Current Issues
 
- - There are reports for connection drops (Disconnecting and reconnecting resolves it). Fully stable in my setup (i211 @ B450).
+ - Although it's fully stable in my setup (i211 @ B450) and some [others](https://github.com/donatengit/AppleIGB/discussions/6), specifically B470, X299, Z390, Z270, WS C246 - there are multiple reports for instability and connection drops on X570, TRX40 motherboards. So for those having these MB I'd recommended to stay on SmallTree and corresponding MacOS versions 11.x or attach USB Ethernet until there is someone could help with a deep diagnosis of the problem.
  - This driver doesn't use MSI-X interrupts
