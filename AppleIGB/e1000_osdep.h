@@ -14,6 +14,7 @@
 #include <libkern/OSByteOrder.h>
 #include <sys/kpi_mbuf.h>
 #include <IOKit/IOLib.h>
+#include <stdatomic.h>
 #include <libkern/OSAtomic.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>

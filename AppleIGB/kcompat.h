@@ -362,12 +362,12 @@ typedef void AppleIGB;
 #define likely(x) __builtin_expect(!!(x), 1)
 #define	BUG()
 
-#define    wmb() mb()
-#define    rmb() mb()
+#define    wmb() atomic_thread_fence(memory_order_release)
+#define    rmb() atomic_thread_fence(memory_order_acquire)
 #define    mmiowb()
 #define    smp_mb()    mb()
-#define    smp_rmb() mb()
-#define mb()
+#define    smp_rmb() rmb()
+#define mb() atomic_thread_fence(memory_order_seq_cst)
 
 #define	__MODULE_STRING(s)	"x"
 
