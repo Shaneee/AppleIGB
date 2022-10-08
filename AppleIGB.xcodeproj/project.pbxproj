@@ -35,6 +35,8 @@
 		4DB1EEAF14668F1400BDCFB3 /* e1000_defines.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DB1EEAE14668F1400BDCFB3 /* e1000_defines.h */; };
 		4DC75F441661194F00EE4583 /* e1000_i210.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DC75F431661194F00EE4583 /* e1000_i210.h */; };
 		4DC75F481661195900EE4583 /* e1000_i210.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DC75F471661195900EE4583 /* e1000_i210.c */; };
+		F6236F2F28B5420900034550 /* e1000_base.h in Headers */ = {isa = PBXBuildFile; fileRef = F6236F2E28B5420900034550 /* e1000_base.h */; };
+		F6236F3128B5421300034550 /* e1000_base.c in Sources */ = {isa = PBXBuildFile; fileRef = F6236F3028B5421300034550 /* e1000_base.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -71,6 +73,8 @@
 		4DC75F471661195900EE4583 /* e1000_i210.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_i210.c; path = AppleIGB/e1000_i210.c; sourceTree = "<group>"; };
 		4DED0B1C10EB2A6300CF5CE1 /* kcompat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kcompat.c; sourceTree = "<group>"; };
 		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		F6236F2E28B5420900034550 /* e1000_base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = e1000_base.h; path = AppleIGB/e1000_base.h; sourceTree = "<group>"; };
+		F6236F3028B5421300034550 /* e1000_base.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = e1000_base.c; path = AppleIGB/e1000_base.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +120,7 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				F6236F3028B5421300034550 /* e1000_base.c */,
 				4DC75F471661195900EE4583 /* e1000_i210.c */,
 				1A224C3EFF42367911CA2CB7 /* AppleIGB.h */,
 				1A224C3FFF42367911CA2CB7 /* AppleIGB.cpp */,
@@ -135,6 +140,7 @@
 		4D99BB9F10E4CFFB00292443 /* Header */ = {
 			isa = PBXGroup;
 			children = (
+				F6236F2E28B5420900034550 /* e1000_base.h */,
 				4DC75F431661194F00EE4583 /* e1000_i210.h */,
 				4D99BBA210E4D08700292443 /* kcompat.h */,
 				4DB1EE8814668EEB00BDCFB3 /* e1000_82575.h */,
@@ -175,6 +181,7 @@
 				4D99BBA310E4D08700292443 /* kcompat.h in Headers */,
 				4DB1EE9314668EEB00BDCFB3 /* e1000_82575.h in Headers */,
 				4DB1EE9414668EEB00BDCFB3 /* e1000_api.h in Headers */,
+				F6236F2F28B5420900034550 /* e1000_base.h in Headers */,
 				4DB1EE9514668EEB00BDCFB3 /* e1000_hw.h in Headers */,
 				4DB1EE9614668EEB00BDCFB3 /* e1000_mac.h in Headers */,
 				4DB1EE9714668EEB00BDCFB3 /* e1000_manage.h in Headers */,
@@ -273,6 +280,7 @@
 				4DB1EEAB14668F0800BDCFB3 /* e1000_nvm.c in Sources */,
 				4DB1EEAC14668F0800BDCFB3 /* e1000_phy.c in Sources */,
 				4DB1EEAD14668F0800BDCFB3 /* igb_vmdq.c in Sources */,
+				F6236F3128B5421300034550 /* e1000_base.c in Sources */,
 				4D9C4120146CFF43008344C0 /* igb_param.c in Sources */,
 				4DC75F481661195900EE4583 /* e1000_i210.c in Sources */,
 			);
@@ -292,14 +300,14 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5.7.2;
+				CURRENT_PROJECT_VERSION = 5.11.4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = "$(SRCROOT)/AppleIGB/Info.plist";
-				MACOSX_DEPLOYMENT_TARGET = 12.1;
-				MARKETING_VERSION = 5.7.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 5.11.4;
 				MODULE_NAME = com.amdosx.driver.AppleIGB;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.amdosx.driver.AppleIGB;
@@ -316,12 +324,12 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
 				CODE_SIGN_IDENTITY = "-";
-				CURRENT_PROJECT_VERSION = 5.7.2;
+				CURRENT_PROJECT_VERSION = 5.11.4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "$(SRCROOT)/AppleIGB/Info.plist";
-				MACOSX_DEPLOYMENT_TARGET = 12.1;
-				MARKETING_VERSION = 5.7.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 5.11.4;
 				MODULE_NAME = com.amdosx.driver.AppleIGB;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.amdosx.driver.AppleIGB;
@@ -360,15 +368,17 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Debug;
@@ -401,14 +411,17 @@
 				GCC_ONE_BYTE_BOOL = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Release;
@@ -442,14 +455,16 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_VERSION = "";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 				VALID_ARCHS = i386;
 			};
 			name = Release_Leo;
@@ -461,12 +476,12 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
 				CODE_SIGN_IDENTITY = "-";
-				CURRENT_PROJECT_VERSION = 5.7.2;
+				CURRENT_PROJECT_VERSION = 5.11.4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "$(SRCROOT)/AppleIGB/Info.plist";
-				MACOSX_DEPLOYMENT_TARGET = 12.1;
-				MARKETING_VERSION = 5.7.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 5.11.4;
 				MODULE_NAME = com.amdosx.driver.AppleIGB;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.amdosx.driver.AppleIGB;

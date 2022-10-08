@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 2007 - 2021 Intel Corporation. */
+/* Copyright(c) 2007 - 2022 Intel Corporation. */
 
 
 #ifdef    __APPLE__
@@ -49,15 +49,15 @@ static int num_online_cpus()
  */
 
 #define IGB_PARAM(X, desc) \
-    static const int X[IGB_MAX_NIC+1] = IGB_PARAM_INIT; \
-    MODULE_PARM(X, "1-" __MODULE_STRING(IGB_MAX_NIC) "i"); \
-    MODULE_PARM_DESC(X, desc);
+	static const int X[IGB_MAX_NIC+1] = IGB_PARAM_INIT; \
+	MODULE_PARM(X, "1-" __MODULE_STRING(IGB_MAX_NIC) "i"); \
+	MODULE_PARM_DESC(X, desc);
 #else
 #define IGB_PARAM(X, desc) \
-    static int X[IGB_MAX_NIC+1] = IGB_PARAM_INIT; \
-    static unsigned int num_##X; \
-    module_param_array_named(X, X, int, &num_##X, 0); \
-    MODULE_PARM_DESC(X, desc);
+	static int X[IGB_MAX_NIC+1] = IGB_PARAM_INIT; \
+	static unsigned int num_##X; \
+	module_param_array_named(X, X, int, &num_##X, 0); \
+	MODULE_PARM_DESC(X, desc);
 #endif
 #ifdef    __APPLE__
 #undef    IGB_PARAM
@@ -69,7 +69,7 @@ static int num_online_cpus()
  * Valid Range: 100-100000 (0=off, 1=dynamic, 3=dynamic conservative)
  */
 IGB_PARAM(InterruptThrottleRate,
-      "Maximum interrupts per second, per vector, (max 100000), default 3=adaptive");
+	  "Maximum interrupts per second, per vector, (max 100000), default 3=adaptive");
 #define DEFAULT_ITR                    3
 #define MAX_ITR                   100000
 /* #define MIN_ITR                      120 */
@@ -81,7 +81,7 @@ IGB_PARAM(InterruptThrottleRate,
  * Default Value: 2 (MSI-X)
  */
 IGB_PARAM(IntMode,
-    "Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), default 2");
+	"Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), default 2");
 #define MAX_INTMODE                    IGB_INT_MODE_MSIX
 #define MIN_INTMODE                    IGB_INT_MODE_LEGACY
 
@@ -94,7 +94,7 @@ IGB_PARAM(Node, "set the starting node to allocate memory on, default -1");
  * Default Value: 0 (disabled)
  */
 IGB_PARAM(LLIPort,
-    "Low Latency Interrupt TCP Port (0-65535), default 0=off");
+	"Low Latency Interrupt TCP Port (0-65535), default 0=off");
 
 #define DEFAULT_LLIPORT                0
 #define MAX_LLIPORT               0xFFFF
@@ -119,7 +119,7 @@ IGB_PARAM(LLIPush, "Low Latency Interrupt on TCP Push flag (0,1), default 0=off"
  * Default Value: 0 (disabled)
  */
 IGB_PARAM(LLISize,
-    "Low Latency Interrupt on Packet Size (0-1500), default 0=off");
+	"Low Latency Interrupt on Packet Size (0-1500), default 0=off");
 
 #define DEFAULT_LLISIZE                0
 #define MAX_LLISIZE                 1500
@@ -132,7 +132,7 @@ IGB_PARAM(LLISize,
  * Default Value:  1
  */
 IGB_PARAM(RSS,
-    "Number of Receive-Side Scaling Descriptor Queues (0-8), default 1, 0=number of cpus");
+	"Number of Receive-Side Scaling Descriptor Queues (0-8), default 1, 0=number of cpus");
 
 #define DEFAULT_RSS       1
 #define MAX_RSS           8
@@ -145,7 +145,7 @@ IGB_PARAM(RSS,
  * Default Value:  0
  */
 IGB_PARAM(VMDQ,
-    "Number of Virtual Machine Device Queues: 0-1 = disable, 2-8 enable, default 0");
+	"Number of Virtual Machine Device Queues: 0-1 = disable, 2-8 enable, default 0");
 
 #define DEFAULT_VMDQ      0
 #define MAX_VMDQ          MAX_RSS
@@ -158,7 +158,7 @@ IGB_PARAM(VMDQ,
  * Default Value:  0
  */
 IGB_PARAM(max_vfs,
-    "Number of Virtual Functions: 0 = disable, 1-7 enable, default 0");
+	"Number of Virtual Functions: 0 = disable, 1-7 enable, default 0");
 
 #define DEFAULT_SRIOV     0
 #define MAX_SRIOV         7
@@ -173,7 +173,7 @@ IGB_PARAM(max_vfs,
  * Default Value:  1
  */
 IGB_PARAM(MDD,
-    "Malicious Driver Detection (0/1), default 1 = enabled. Only available when max_vfs is greater than 0");
+	"Malicious Driver Detection (0/1), default 1 = enabled. Only available when max_vfs is greater than 0");
 
 #ifdef DEBUG
 
@@ -521,7 +521,7 @@ void igb_check_options(struct igb_adapter *adapter)
 				adapter->vfs_allocated_count = 0;
 				DPRINTK(PROBE, INFO,
 					"SR-IOV option max_vfs not supported.\n");
-				/* Fall through */
+				fallthrough;
 			default:
 				break;
 			}
@@ -643,7 +643,7 @@ void igb_check_options(struct igb_adapter *adapter)
 						    adapter);
 				if (adapter->rss_queues)
 					break;
-				/* Fall through */
+				fallthrough;
 			case 0:
 				adapter->rss_queues = min_t(u32, opt.arg.r.max,
 							    num_online_cpus());

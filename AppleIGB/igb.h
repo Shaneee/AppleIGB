@@ -1,26 +1,5 @@
-/*******************************************************************************
-
-  Intel(R) Gigabit Ethernet Linux driver
-  Copyright(c) 2007-2015 Intel Corporation.
-
-  This program is free software; you can redistribute it and/or modify it
-  under the terms and conditions of the GNU General Public License,
-  version 2, as published by the Free Software Foundation.
-
-  This program is distributed in the hope it will be useful, but WITHOUT
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  more details.
-
-  The full GNU General Public License is included in this distribution in
-  the file called "COPYING".
-
-  Contact Information:
-  Linux NICS <linux.nics@intel.com>
-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-
-*******************************************************************************/
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright(c) 2007 - 2022 Intel Corporation. */
 
 /* Linux PRO/1000 Ethernet Driver main header file */
 
@@ -128,10 +107,10 @@ struct igb_adapter;
 #define MAX_Q_VECTORS                     10
 
 /* Transmit and receive queues */
-#define IGB_MAX_RX_QUEUES                 16
+#define IGB_MAX_RX_QUEUES                  8
 #define IGB_MAX_RX_QUEUES_82575            4
 #define IGB_MAX_RX_QUEUES_I211             2
-#define IGB_MAX_TX_QUEUES                 16
+#define IGB_MAX_TX_QUEUES                  8
 
 #define IGB_MAX_VF_MC_ENTRIES             30
 #define IGB_MAX_VF_FUNCTIONS               8
@@ -141,6 +120,8 @@ struct igb_adapter;
 #define MAX_EMULATION_MAC_ADDRS           16
 #define OUI_LEN                            3
 #define IGB_MAX_VMDQ_QUEUES                8
+
+#define MAX_STD_JUMBO_FRAME_SIZE	9216
 
 struct vf_data_storage {
 	unsigned char vf_mac_addresses[ETH_ALEN];
@@ -152,6 +133,7 @@ struct vf_data_storage {
 	u32 uta_table_copy[IGB_MAX_UTA_ENTRIES];
 	u32 flags;
 	unsigned long last_nack;
+	bool trusted;
 #ifdef IFLA_VF_MAX
 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
 	u16 pf_qos;
@@ -160,6 +142,13 @@ struct vf_data_storage {
 	bool spoofchk_enabled;
 #endif
 #endif
+};
+
+struct vf_mac_filter {
+	struct list_head l;
+	int vf;
+	bool free;
+	u8 vf_mac[ETH_ALEN];
 };
 
 #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
@@ -216,12 +205,20 @@ struct vf_data_storage {
 /* How many Rx Buffers do we bundle into one write to the hardware ? */
 #define IGB_RX_BUFFER_WRITE	16	/* Must be power of 2 */
 
+#ifdef HAVE_STRUCT_DMA_ATTRS
+#define IGB_RX_DMA_ATTR        NULL
+#else
+#define IGB_RX_DMA_ATTR \
+    (DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
+#endif
+
+
 #define IGB_EEPROM_APME         0x0400
 #define AUTO_ALL_MODES          0
 
-#ifndef IGB_MASTER_SLAVE
-/* Switch to override PHY master/slave setting */
-#define IGB_MASTER_SLAVE	e1000_ms_hw_default
+#ifndef IGB_PRIMARY_SECONDARY
+/* Switch to override PHY primary/secondary setting */
+#define IGB_PRIMARY_SECONDARY    e1000_ms_hw_default
 #endif
 
 #define IGB_MNG_VLAN_NONE -1
@@ -295,7 +292,7 @@ enum igb_tx_flags {
  * maintain a power of two alignment we have to limit ourselves to 32K.
  */
 #define IGB_MAX_TXD_PWR		15
-#define IGB_MAX_DATA_PER_TXD	(1 << IGB_MAX_TXD_PWR)
+#define IGB_MAX_DATA_PER_TXD	(1u << IGB_MAX_TXD_PWR)
 
 /* Tx Descriptors needed, worst case */
 #define TXD_USE_COUNT(S)	DIV_ROUND_UP((S), IGB_MAX_DATA_PER_TXD)
@@ -384,9 +381,6 @@ struct igb_ring {
 		struct igb_tx_buffer *tx_buffer_info;
 		struct igb_rx_buffer *rx_buffer_info;
 	};
-#ifdef HAVE_PTP_1588_CLOCK
-	unsigned long last_rx_timestamp;
-#endif /* HAVE_PTP_1588_CLOCK */
 	void *desc;                     /* descriptor ring memory */
 	unsigned long flags;            /* ring specific flags */
 	void __iomem *tail;             /* pointer to ring tail register */
@@ -469,6 +463,8 @@ struct igb_mac_addr {
 #define IGB_MAC_STATE_DEFAULT	0x1
 #define IGB_MAC_STATE_MODIFIED	0x2
 #define IGB_MAC_STATE_IN_USE	0x4
+#define IGB_MAC_STATE_SRC_ADDR  0x8
+#define IGB_MAC_STATE_QUEUE_STEERING 0x10
 
 #define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
 
@@ -512,15 +508,10 @@ static inline struct netdev_queue *txring_txq(const struct igb_ring *tx_ring)
 }
 #endif /* CONFIG_BQL */
 
-// #ifdef EXT_THERMAL_SENSOR_SUPPORT
-// #ifdef IGB_PROCFS
 struct igb_therm_proc_data {
 	struct e1000_hw *hw;
 	struct e1000_thermal_diode_data *sensor_data;
 };
-
-//  #endif /* IGB_PROCFS */
-// #endif /* EXT_THERMAL_SENSOR_SUPPORT */
 
 #ifdef IGB_HWMON
 #define IGB_HWMON_TYPE_LOC	0
@@ -533,17 +524,47 @@ struct hwmon_attr {
 	struct e1000_hw *hw;
 	struct e1000_thermal_diode_data *sensor;
 	char name[12];
-	};
+};
 
 struct hwmon_buff {
 	struct device *device;
 	struct hwmon_attr *hwmon_list;
 	unsigned int n_hwmon;
-	};
+};
 #endif /* IGB_HWMON */
 #ifdef ETHTOOL_GRXFHINDIR
 #define IGB_RETA_SIZE	128
 #endif /* ETHTOOL_GRXFHINDIR */
+enum igb_filter_match_flags {
+	IGB_FILTER_FLAG_NONE = 0x0,
+	IGB_FILTER_FLAG_ETHER_TYPE = 0x1,
+	IGB_FILTER_FLAG_VLAN_TCI   = 0x2,
+	IGB_FILTER_FLAG_SRC_MAC_ADDR = 0x4,
+	IGB_FILTER_FLAG_DST_MAC_ADDR = 0x8,
+};
+
+#define IGB_MAX_RXNFC_FILTERS 16
+
+/* RX network flow classification data structure */
+struct igb_nfc_input {
+	/* Byte layout in order, all values with MSB first:
+	 * match_flags - 1 byte
+	 * etype - 2 bytes
+	 * vlan_tci - 2 bytes
+	 */
+	u8 match_flags;
+	__be16 etype;
+	__be16 vlan_tci;
+	u8 src_addr[ETH_ALEN];
+	u8 dst_addr[ETH_ALEN];
+};
+
+struct igb_nfc_filter {
+	struct hlist_node nfc_node;
+	struct igb_nfc_input filter;
+	u16 sw_idx;
+	u16 action;
+};
 
 /* board specific private data structure */
 struct igb_adapter {
@@ -588,6 +609,7 @@ struct igb_adapter {
 	u8 port_num;
 
 	u8 __iomem *io_addr; /* for iounmap */
+	u8 __iomem *flash_addr;
 
 	/* Interrupt Throttle Rate */
 	u32 rx_itr_setting;
@@ -638,6 +660,7 @@ struct igb_adapter {
 
 	int msg_enable;
 
+	struct vf_mac_filter vf_macs;
 	struct igb_q_vector *q_vector[MAX_Q_VECTORS];
 #ifdef __APPLE__
 	size_t q_vector_size[MAX_Q_VECTORS];
@@ -662,7 +685,7 @@ struct igb_adapter {
 	u32 rss_queues;
 	u32 tss_queues;
 	u32 vmdq_pools;
-	char fw_version[32];
+	char fw_version[45];
 	u32 wvbr;
 	struct igb_mac_addr *mac_table;
 #ifdef CONFIG_IGB_VMDQ_NETDEV
@@ -715,6 +738,15 @@ struct igb_adapter {
 
 	int copper_tries;
 	u16 eee_advert;
+
+	/* RX network flow classification support */
+	struct hlist_head nfc_filter_list;
+	unsigned int nfc_filter_count;
+	/* lock for RX network flow classification filter */
+#ifndef __APPLE__
+	spinlock_t nfc_lock;
+#endif /* __APPLE__ */
+
 #ifdef ETHTOOL_GRXFHINDIR
 	u32 rss_indir_tbl_init;
 	u8 rss_indir_tbl[IGB_RETA_SIZE];
@@ -737,22 +769,23 @@ struct igb_vmdq_adapter {
 };
 #endif
 
-#define IGB_FLAG_HAS_MSI		(1 << 0)
-#define IGB_FLAG_DCA_ENABLED		(1 << 1)
-#define IGB_FLAG_LLI_PUSH		(1 << 2)
-#define IGB_FLAG_QUAD_PORT_A		(1 << 3)
-#define IGB_FLAG_QUEUE_PAIRS		(1 << 4)
-#define IGB_FLAG_EEE			(1 << 5)
-#define IGB_FLAG_DMAC			(1 << 6)
-#define IGB_FLAG_DETECT_BAD_DMA		(1 << 7)
-#define IGB_FLAG_PTP			(1 << 8)
-#define IGB_FLAG_RSS_FIELD_IPV4_UDP	(1 << 9)
-#define IGB_FLAG_RSS_FIELD_IPV6_UDP	(1 << 10)
-#define IGB_FLAG_WOL_SUPPORTED		(1 << 11)
-#define IGB_FLAG_NEED_LINK_UPDATE	(1 << 12)
-#define IGB_FLAG_LOOPBACK_ENABLE	(1 << 13)
-#define IGB_FLAG_MEDIA_RESET		(1 << 14)
-#define IGB_FLAG_MAS_ENABLE		(1 << 15)
+#define IGB_FLAG_HAS_MSI		BIT(0)
+#define IGB_FLAG_DCA_ENABLED		BIT(1)
+#define IGB_FLAG_LLI_PUSH		BIT(2)
+#define IGB_FLAG_QUAD_PORT_A		BIT(3)
+#define IGB_FLAG_QUEUE_PAIRS		BIT(4)
+#define IGB_FLAG_EEE			BIT(5)
+#define IGB_FLAG_DMAC			BIT(6)
+#define IGB_FLAG_DETECT_BAD_DMA		BIT(7)
+#define IGB_FLAG_PTP			BIT(8)
+#define IGB_FLAG_RSS_FIELD_IPV4_UDP	BIT(9)
+#define IGB_FLAG_RSS_FIELD_IPV6_UDP	BIT(10)
+#define IGB_FLAG_WOL_SUPPORTED		BIT(11)
+#define IGB_FLAG_NEED_LINK_UPDATE	BIT(12)
+#define IGB_FLAG_LOOPBACK_ENABLE	BIT(13)
+#define IGB_FLAG_MEDIA_RESET		BIT(14)
+#define IGB_FLAG_VLAN_PROMISC		BIT(15)
+#define IGB_FLAG_MAS_ENABLE		BIT(16)
 
 /* Media Auto Sense */
 #define IGB_MAS_ENABLE_0		0X0001
@@ -788,15 +821,16 @@ struct igb_vmdq_adapter {
 #define FW_HDR_LEN           0x4
 #define FW_CMD_DRV_INFO      0xDD
 #define FW_CMD_DRV_INFO_LEN  0x5
+#define FW_CMD_DRV_INFO_LEN_NEW 0x9
 #define FW_CMD_RESERVED      0X0
 #define FW_RESP_SUCCESS      0x1
-#define FW_UNUSED_VER        0x0
 #define FW_MAX_RETRIES       3
 #define FW_STATUS_SUCCESS    0x1
-#define FW_FAMILY_DRV_VER    0Xffffffff
+#define FW_FAMILY_DRV_VER    0XFFFFFFFF
 
 #define IGB_MAX_LINK_TRIES   20
 
+#pragma pack(push, 1)
 struct e1000_fw_hdr {
 	u8 cmd;
 	u8 buf_len;
@@ -807,15 +841,25 @@ struct e1000_fw_hdr {
 	u8 checksum;
 };
 
-#pragma pack(push, 1)
 struct e1000_fw_drv_info {
 	struct e1000_fw_hdr hdr;
 	u8 port_num;
-	u32 drv_version;
+	u32 family_drv_version;
+	u32 actual_drv_version;
 	u16 pad; /* end spacing to ensure length is mult. of dword */
 	u8  pad2; /* end spacing to ensure length is mult. of dword2 */
 };
 #pragma pack(pop)
+
+enum host_cmd_id_status {
+	HCI_STATUS_OK = 1,
+	HCI_ILLEGAL_CMD_ID,
+	HCI_UNSUPPORTED_CMD,
+	HCI_ILLEGAL_PAYLOAD_LENGTH,
+	HCI_CHECKSUM_FAILED,
+	HCI_DATA_ERROR,
+	HCI_INVALID_PARAMETER
+};
 
 enum e1000_state_t {
 	__IGB_TESTING,
@@ -902,4 +946,11 @@ void igb_procfs_topdir_exit(void);
 #endif /* IGB_PROCFS */
 #endif /* IGB_HWMON */
 
+int igb_add_filter(struct igb_adapter *adapter, struct igb_nfc_filter *input);
+int igb_del_filter(struct igb_adapter *adapter, struct igb_nfc_filter *input);
+
+int igb_add_mac_steering_filter(struct igb_adapter *adapter,
+				const u8 *addr, u8 queue, u8 flags);
+int igb_del_mac_steering_filter(struct igb_adapter *adapter,
+				const u8 *addr, u8 queue, u8 flags);
 #endif /* _IGB_H_ */

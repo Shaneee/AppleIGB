@@ -39,7 +39,7 @@ typedef __uint8_t u8;
 
 #define	sk_buff	__mbuf
 
-#define	__iomem
+#define	__iomem volatile
 
 #define	dma_addr_t	IOPhysicalAddress
 
@@ -60,6 +60,14 @@ typedef __uint8_t u8;
 #define	readw(reg)	_OSReadInt16(reg, 0)
 #define read_barrier_depends()
 
+#define intelWriteMem8(reg, val8)       _OSWriteInt8((baseAddr), (reg), (val8))
+#define intelWriteMem16(reg, val16)     OSWriteLittleInt16((baseAddr), (reg), (val16))
+#define intelWriteMem32(reg, val32)     OSWriteLittleInt32((baseAddr), (reg), (val32))
+#define intelReadMem8(reg)              _OSReadInt8((baseAddr), (reg))
+#define intelReadMem16(reg)             OSReadLittleInt16((baseAddr), (reg))
+#define intelReadMem32(reg)             OSReadLittleInt32((baseAddr), (reg))
+#define intelFlush()                    OSReadLittleInt32((baseAddr), (E1000_STATUS))
+
 #ifdef	ALIGN
 #undef	ALIGN
 #endif
@@ -73,12 +81,20 @@ typedef __uint8_t u8;
 /* GFP_ATOMIC means both !wait (__GFP_WAIT not set) and use emergency pool */
 #define GFP_ATOMIC      0
 
-#define DEFINE_DMA_UNMAP_ADDR(ADDR_NAME)        dma_addr_t ADDR_NAME
-#define DEFINE_DMA_UNMAP_LEN(LEN_NAME)          UInt32 LEN_NAME
-#define dma_unmap_addr(PTR, ADDR_NAME)           ((PTR)->ADDR_NAME)
-#define dma_unmap_addr_set(PTR, ADDR_NAME, VAL)  (((PTR)->ADDR_NAME) = (VAL))
-#define dma_unmap_len(PTR, LEN_NAME)             ((PTR)->LEN_NAME)
-#define dma_unmap_len_set(PTR, LEN_NAME, VAL)    (((PTR)->LEN_NAME) = (VAL))
+typedef unsigned int __u32;
+
+#undef DEFINE_DMA_UNMAP_ADDR
+#define DEFINE_DMA_UNMAP_ADDR(ADDR_NAME)	dma_addr_t ADDR_NAME
+#undef DEFINE_DMA_UNMAP_LEN
+#define DEFINE_DMA_UNMAP_LEN(LEN_NAME)		__u32 LEN_NAME
+#undef dma_unmap_addr
+#define dma_unmap_addr(PTR, ADDR_NAME)		((PTR)->ADDR_NAME)
+#undef dma_unmap_addr_set
+#define dma_unmap_addr_set(PTR, ADDR_NAME, VAL)	(((PTR)->ADDR_NAME) = (VAL))
+#undef dma_unmap_len
+#define dma_unmap_len(PTR, LEN_NAME)		((PTR)->LEN_NAME)
+#undef dma_unmap_len_set
+#define dma_unmap_len_set(PTR, LEN_NAME, VAL)	(((PTR)->LEN_NAME) = (VAL))
 
 
 struct net_device_stats {
@@ -138,6 +154,54 @@ struct work_struct {
 	void *wq_data;
 	struct timer_list timer;
 };
+
+/* hlist_* code - double linked lists */
+struct hlist_head {
+	struct hlist_node *first;
+};
+
+struct hlist_node {
+	struct hlist_node *next, **pprev;
+};
+
+static inline void __hlist_del(struct hlist_node *n)
+{
+	struct hlist_node *next = n->next;
+	struct hlist_node **pprev = n->pprev;
+	*pprev = next;
+	if (next)
+	next->pprev = pprev;
+}
+
+static inline void hlist_del(struct hlist_node *n)
+{
+	__hlist_del(n);
+	n->next = NULL;
+	n->pprev = NULL;
+}
+
+static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
+{
+	struct hlist_node *first = h->first;
+	n->next = first;
+	if (first)
+		first->pprev = &n->next;
+	h->first = n;
+	n->pprev = &h->first;
+}
+
+static inline int hlist_empty(const struct hlist_head *h)
+{
+	return !h->first;
+}
+#define HLIST_HEAD_INIT { .first = NULL }
+#define HLIST_HEAD(name) struct hlist_head name = {  .first = NULL }
+#define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
+static inline void INIT_HLIST_NODE(struct hlist_node *h)
+{
+	h->next = NULL;
+	h->pprev = NULL;
+}
 
 #ifndef rcu_head
 struct __kc_callback_head {
@@ -258,10 +322,14 @@ static inline unsigned int _kc_ether_crc_le(int length, unsigned char *data)
 	return crc;
 }
 
-#define	EIO		5
-#define	ENOMEM	12
-#define	EBUSY	16
-#define EINVAL  22  /* Invalid argument */
+#define	EIO			5
+#define ENOENT		2
+#define	ENOMEM		12
+#define	EBUSY		16
+#define EINVAL  	22  /* Invalid argument */
+#define ENOTSUP		524
+#define EOPNOTSUPP 	ENOTSUP
+
 /*****************************************************************************/
 #define msleep(x)	IOSleep(x)
 #define udelay(x)	IODelay(x)
@@ -288,20 +356,28 @@ typedef void AppleIGB;
 
 #define	prefetch(x)
 #define	prefetchw(x)
-#define	unlikely(x)	(x)
-#define	likely(x)	(x)
+//#define	unlikely(x)	(x)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+//#define	likely(x)	(x)
+#define likely(x) __builtin_expect(!!(x), 1)
 #define	BUG()
-#define	wmb()
-#define	rmb()
-#define	mmiowb()
-#define	smp_mb()	mb()
-#define mb()
+
+#define    wmb() atomic_thread_fence(memory_order_release)
+#define    rmb() atomic_thread_fence(memory_order_acquire)
+#define    mmiowb()
+#define    smp_mb()    mb()
+#define    smp_rmb() rmb()
+#define mb() atomic_thread_fence(memory_order_seq_cst)
 
 #define	__MODULE_STRING(s)	"x"
 
 /** DPRINTK specific variables*/
 #define DRV 0x00
 #define PROBE 0x01
+
+#define PFX "igb: "
+
+#ifdef APPLE_OS_LOG
 
 extern os_log_t igb_logger;
 
@@ -312,27 +388,41 @@ extern os_log_t igb_logger;
 #define K_LOG_TYPE_WARNING OS_LOG_TYPE_ERROR
 #define K_LOG_TYPE_ERROR OS_LOG_TYPE_FAULT
 
-#define PFX "igb: "
-#ifdef DEBUG
-#define    pr_debug(args...)    os_log_debug(igb_logger, PFX args)
-#else
-#define    pr_debug(args...)    do { } while (0)
-#endif
-#define    pr_err(args...)      os_log_error(igb_logger, PFX args)
-#define    dev_warn(dev,args...)    os_log_error(igb_logger, PFX##dev##args)
-#define    dev_info(dev,args...)    os_log_info(igb_logger, PFX##dev##args)
 
-#define IGB_ERR(args...) pr_err("IGBERR " PFX ##args)
+
+#define    pr_debug(args...)    os_log_debug(igb_logger, PFX args)
+#define    pr_err(args...)      os_log_error(igb_logger, PFX args)
+#define    dev_warn(dev,args...)    os_log_error(igb_logger, PFX##dev args)
+#define    dev_info(dev,args...)    os_log_info(igb_logger, PFX##dev args)
+
+#define IGB_ERR(args...) pr_err("IGBERR " PFX args)
 
 #ifdef    __APPLE__
 #define DPRINTK(nlevel, klevel, fmt, args...) \
-    os_log_with_type(igb_logger, K_LOG_TYPE_##klevel, PFX fmt, ## args)
+    os_log_with_type(igb_logger, K_LOG_TYPE_##klevel, PFX fmt, args)
 #else
 #define DPRINTK(nlevel, klevel, fmt, args...) \
     (void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
     printk(KERN_##klevel PFX "%s: %s: " fmt, adapter->netdev->name, \
         __func__ , ## args))
 #endif
+
+#else
+
+#ifdef DEBUG
+#define    pr_debug(args...)    IOLog(PFX args)
+#else
+#define    pr_debug(args...)
+#endif
+#define    pr_err(args...)      IOLog(PFX args)
+#define    dev_warn(dev,args...)    IOLog(PFX args)
+#define    dev_info(dev,args...)    IOLog(PFX args)
+
+#define IGB_ERR(args...) pr_err("IGBERR " PFX args)
+
+#define DPRINTK(nlevel, klevel, fmt, args...) IOLog(PFX fmt, ##args)
+
+#endif /* APPLE_OS_LOG */
 
 #define	in_interrupt()	(0)
 
@@ -347,6 +437,7 @@ extern os_log_t igb_logger;
 
 #define		iphdr	ip
 struct net_device { void* dummy; };
+struct ifreq { void* dummy; };
 
 enum irqreturn {
 	IRQ_NONE,
@@ -438,6 +529,16 @@ static inline unsigned ether_addr_equal(const u8 *addr1, const u8 *addr2)
 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
 }
 
+/**
+ * eth_zero_addr - Assign zero address
+ * @addr: Pointer to a six-byte array containing the Ethernet address
+ *
+ * Assign the zero address to the given address array.
+ */
+static inline void eth_zero_addr(u8 *addr)
+{
+	memset(addr, 0x00, ETH_ALEN);
+}
 
 #ifdef HAVE_VLAN_RX_REGISTER
 #define VLAN_GROUP_ARRAY_LEN          4096
@@ -456,5 +557,18 @@ struct vlan_group {
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+#ifndef READ_ONCE
+#define READ_ONCE(_x) ACCESS_ONCE(_x)
+#endif
+
+#define fallthrough do {} while (0)  /* fallthrough */
+
+#ifndef BIT
+#define BIT(nr)         (1UL << (nr))
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
 
 #endif /* _KCOMPAT_H_ */

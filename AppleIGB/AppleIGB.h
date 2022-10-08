@@ -11,22 +11,41 @@ enum {
 
 enum
 {
-	MEDIUM_INDEX_AUTO = 0,
-	MEDIUM_INDEX_10HD,
-	MEDIUM_INDEX_10FD,
-	MEDIUM_INDEX_100HD,
-	MEDIUM_INDEX_100FD,
-	MEDIUM_INDEX_1000FD,
-	MEDIUM_INDEX_COUNT
+    MEDIUM_INDEX_AUTO = 0,
+    MEDIUM_INDEX_10HD,
+    MEDIUM_INDEX_10FD,
+    MEDIUM_INDEX_100HD,
+    MEDIUM_INDEX_100FD,
+    MEDIUM_INDEX_100FDFC,
+    MEDIUM_INDEX_1000FD,
+    MEDIUM_INDEX_1000FDFC,
+    MEDIUM_INDEX_1000FDEEE,
+    MEDIUM_INDEX_1000FDFCEEE,
+    MEDIUM_INDEX_100FDEEE,
+    MEDIUM_INDEX_100FDFCEEE,
+    MEDIUM_INDEX_COUNT
 };
 
-enum 
-{
-	kActivationLevelNone = 0,  /* adapter shut off */
-	kActivationLevelKDP,       /* adapter partially up to support KDP */
-	kActivationLevelBSD        /* adapter fully up to support KDP and BSD */
+
+enum {
+    kSpeed1000MBit = 1000*MBit,
+    kSpeed100MBit = 100*MBit,
+    kSpeed10MBit = 10*MBit,
 };
 
+enum {
+    kFlowControlTypeNone = 0,
+    kFlowControlTypeRx = 1,
+    kFlowControlTypeTx = 2,
+    kFlowControlTypeRxTx = 3,
+    kFlowControlTypeCount
+};
+
+enum {
+    kEEETypeNo = 0,
+    kEEETypeYes = 1,
+    kEEETypeCount
+};
 
 #define super IOEthernetController
 
@@ -44,12 +63,13 @@ public:
 	virtual void stop(IOService * provider);
 	virtual bool init(OSDictionary *properties);
 	virtual void free();
-	
+
 	// --------------------------------------------------
 	// Power Management Support
 	// --------------------------------------------------
 	virtual IOReturn registerWithPolicyMaker(IOService* policyMaker);
     virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService *policyMaker );
+    virtual void systemWillShutdown(IOOptionBits specifier);
 	
 	// --------------------------------------------------
 	// IONetworkController methods.
@@ -105,19 +125,28 @@ private:
 	IOEthernetInterface * netif;
 	IONetworkStats * netStats;
 	IOEthernetStats * etherStats;
-    
+
 	IOMemoryMap * csrPCIAddress;
 	
 	IOMbufNaturalMemoryCursor * txMbufCursor;
-	
+
 	bool enabledForNetif;
 	bool bSuspended;
 	bool useTSO;
+
+    bool linkUp;
+    bool stalled;
+
+    UInt16 eeeMode;
+
 	UInt32 iff_flags;
 	UInt32 _features;
 	UInt32 preLinkStatus;
 	UInt32 powerState;
 	UInt32 _mtu;
+    SInt32 txNumFreeDesc;
+
+    UInt32 chip_idx;
 
 	struct igb_adapter priv_adapter;
 public:
@@ -135,7 +164,7 @@ public:
 	IOMbufNaturalMemoryCursor * txCursor(){ return txMbufCursor; }
 	void rxChecksumOK( mbuf_t, UInt32 flag );
 	bool running(){return enabledForNetif;}
-	bool queueStopped(){return txMbufCursor == NULL;}
+	bool queueStopped(){return txMbufCursor == NULL || stalled;}
 	bool carrier();
 	void setCarrier(bool);
     
@@ -145,7 +174,18 @@ private:
 	
 	void watchdogTask();
 	void updatePhyInfoTask();
-	
+
+    void intelRestart();
+    bool intelCheckLink(struct igb_adapter *adapter);
+    void setLinkUp();
+    void setLinkDown();
+    void checkLinkStatus();
+
+
+    UInt16 intelSupportsEEE(struct igb_adapter *adapter);
+    bool setupMediumDict();
+
+    void intelSetupAdvForMedium(const IONetworkMedium *medium);
 	bool addNetworkMedium(UInt32 type, UInt32 bps, UInt32 index);
 
 	bool initEventSources( IOService* provider );
